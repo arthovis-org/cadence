@@ -13,7 +13,6 @@ import { SettingsPage } from './pages/SettingsPage'
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 const InvoicesPage = lazy(() => import('./pages/InvoicesPage').then((m) => ({ default: m.InvoicesPage })))
 const NewInvoicePage = lazy(() => import('./pages/NewInvoicePage').then((m) => ({ default: m.NewInvoicePage })))
-const DeskPage = lazy(() => import('./desk/DeskPage').then((m) => ({ default: m.DeskPage })))
 const InvoiceDetailPage = lazy(() => import('./pages/InvoiceDetailPage').then((m) => ({ default: m.InvoiceDetailPage })))
 
 export function App() {
@@ -47,7 +46,7 @@ export function App() {
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/:id" element={<ProjectDetailPage />} />
         <Route path="clients" element={<ClientsPage />} />
-        <Route path="3d" element={<DeskPage />} />
+        <Route path="3d" element={<Navigate to="/" replace />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="invoices/new" element={<NewInvoicePage />} />

@@ -17,3 +17,105 @@ body {
     padding: 0 !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   2D <-> 3D view transition
+   The live 2D app becomes a panel floating in 3D space (CSS 3D transforms),
+   tilts back and flies away while the WebGL desk fades in behind it.
+   --------------------------------------------------------------------------- */
+
+.vt-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse at 50% 35%, #3b4263 0%, #1a1c26 55%, #0d0e13 100%);
+}
+
+.vt-desk {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.55s ease;
+  background: var(--mantine-color-body);
+}
+
+.vt-desk.vt-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vt-desk.vt-slow {
+  transition: opacity 0.9s ease 0.2s;
+}
+
+.vt-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  perspective: 1500px;
+  perspective-origin: 50% 30%;
+  pointer-events: none;
+}
+
+.vt-hidden {
+  display: none;
+}
+
+.vt-shell.vt-active {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--mantine-color-body);
+  transform-origin: 50% 40%;
+  will-change: transform, opacity;
+  transition:
+    transform var(--vt-dur, 0.6s) cubic-bezier(0.65, 0, 0.25, 1),
+    opacity var(--vt-dur, 0.6s) ease,
+    border-radius var(--vt-dur, 0.6s) ease,
+    box-shadow var(--vt-dur, 0.6s) ease;
+}
+
+/* Floating panel */
+.vt-shell.vt-lift,
+.vt-shell.vt-return {
+  transform: translateZ(-420px);
+  border-radius: 24px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 50px 140px rgba(0, 0, 0, 0.55);
+  --vt-dur: 0.65s;
+}
+
+.vt-shell.vt-return {
+  --vt-dur: 0.9s;
+}
+
+/* Flown off into the distance */
+.vt-shell.vt-away,
+.vt-shell.vt-leave {
+  transform: translate3d(0, -30%, -2800px) rotateX(48deg) rotateZ(-4deg);
+  opacity: 0;
+  border-radius: 24px;
+  --vt-dur: 1.05s;
+}
+
+.vt-shell.vt-leave {
+  transition: none;
+}
+
+/* Back to full screen */
+.vt-shell.vt-land {
+  transform: none;
+  border-radius: 0;
+  --vt-dur: 0.45s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vt-shell.vt-active,
+  .vt-desk {
+    transition: none;
+  }
+}

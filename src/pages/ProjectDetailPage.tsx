@@ -275,7 +275,7 @@ export function ProjectDetailPage() {
                             {t.estimate_hours ? <Text span size="xs" c="dimmed"> / {t.estimate_hours} h</Text> : null}
                           </Table.Td>
                           <Table.Td>
-                            <RateLabel rate={rate} currency={currency} own="task" />
+                            {ratesData && <RateLabel rate={rate} currency={currency} own="task" />}
                           </Table.Td>
                           <Table.Td>
                             <Group gap={4} justify="flex-end" wrap="nowrap">

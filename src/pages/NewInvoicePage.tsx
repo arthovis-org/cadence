@@ -317,7 +317,7 @@ export function NewInvoicePage() {
                   {client ? `${client.name} · ${currency}` : 'Choose a client to see unbilled time'}
                 </Text>
               </Group>
-              <MissingRatesAlert rows={selectedRows} context="invoice" />
+              {rates && <MissingRatesAlert rows={selectedRows} context="invoice" />}
               <Table.ScrollContainer minWidth={560}>
                 <Table verticalSpacing="xs">
                   <Table.Thead>

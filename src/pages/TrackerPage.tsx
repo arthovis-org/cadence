@@ -34,7 +34,8 @@ export function TrackerPage() {
   const projects = useProjects().data ?? []
   const tasks = useTasks().data ?? []
   const clients = useClients().data ?? []
-  const rates = useRates().data ?? []
+  const ratesData = useRates().data
+  const rates = ratesData ?? []
   const remove = useRemove('time_entries')
   const startTimer = useStartTimer()
   const [editing, setEditing] = useState<TimeEntry | 'new' | null>(null)
@@ -62,7 +63,7 @@ export function TrackerPage() {
     return {
       cents: amountCents(entrySeconds(e), rate.cents),
       currency: client?.currency ?? workspace.currency,
-      missing: rate.source === 'none',
+      missing: !!ratesData && rate.source === 'none', // don't flag while rates are still loading
     }
   }
 
@@ -151,7 +152,7 @@ export function TrackerPage() {
                     <Text size="sm" fw={600} className="tabular" w={52} ta="right">
                       {formatDuration(entrySeconds(e), false)}
                     </Text>
-                    <Text size="sm" c="dimmed" className="tabular" w={80} ta="right" visibleFrom="xs">
+                    <Text component="div" size="sm" c="dimmed" className="tabular" w={80} ta="right" visibleFrom="xs">
                       {amount?.missing ? (
                         <Tooltip label={project ? 'Set an hourly rate on the project' : 'Billable time needs a project with a rate'}>
                           <Badge

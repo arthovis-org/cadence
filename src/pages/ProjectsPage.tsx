@@ -11,7 +11,8 @@ export function ProjectsPage() {
   const projects = useProjects()
   const clients = useClients().data ?? []
   const tasks = useTasks().data ?? []
-  const rates = useRates().data ?? []
+  const ratesData = useRates().data
+  const rates = ratesData ?? []
   const workspace = useWorkspace().data!
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
@@ -85,7 +86,7 @@ export function ProjectsPage() {
                       <Text span c="dimmed" size="sm"> / {projectTasks.length}</Text>
                     </Table.Td>
                     <Table.Td>
-                      {p.billable || rate.source !== 'none' ? <RateLabel rate={rate} currency={currency} /> : <Text span size="sm" c="dimmed">—</Text>}
+                      {!ratesData ? null : p.billable || rate.source !== 'none' ? <RateLabel rate={rate} currency={currency} /> : <Text span size="sm" c="dimmed">—</Text>}
                     </Table.Td>
                     <Table.Td>{p.billable ? 'Yes' : 'No'}</Table.Td>
                   </Table.Tr>

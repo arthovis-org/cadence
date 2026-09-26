@@ -382,7 +382,7 @@ export function ReportsPage() {
         </Stack>
       </Paper>
 
-      <MissingRatesAlert rows={rows} context="report" />
+      {rates && <MissingRatesAlert rows={rows} context="report" />}
 
       <SimpleGrid cols={{ base: 2, md: 4 }}>
         <Stat label="Total time" value={formatDuration(sum.seconds, false)} sub={`${hours(sum.seconds)} h`} />

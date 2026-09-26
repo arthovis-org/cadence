@@ -1,11 +1,33 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { ActionIcon, Box, Button, Group, Modal, Paper, Stack, Text, TextInput, Tooltip, useComputedColorScheme } from '@mantine/core'
+import { Vector3 } from 'three'
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Group,
+  Modal,
+  Paper,
+  Stack,
+  Text,
+  TextInput,
+  Tooltip,
+  useComputedColorScheme,
+  useMantineColorScheme,
+} from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { IconCurrencyDollar, IconExternalLink, IconPlayerPlayFilled, IconPlayerStopFilled, IconPlus } from '@tabler/icons-react'
-import { Canvas, useThree } from '@react-three/fiber'
+import {
+  IconClockHour4,
+  IconCurrencyDollar,
+  IconExternalLink,
+  IconMoon,
+  IconPlayerPlayFilled,
+  IconPlayerStopFilled,
+  IconPlus,
+  IconSun,
+} from '@tabler/icons-react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei'
 import dayjs from 'dayjs'
-import { useNavigate } from 'react-router-dom'
 import {
   useClients,
   useInvoices,
@@ -30,18 +52,19 @@ import { EntryForm } from '../components/EntryForm'
 import { ProjectForm } from '../components/ProjectForm'
 import { ProjectTaskSelect, type ProjectTaskValue } from '../components/ProjectTaskSelect'
 import { RateLabel } from '../components/RateLabel'
+import { ViewSwitch } from '../layout/ViewSwitch'
+import { useView, type Phase } from '../layout/view'
 import {
   FileOrganizer,
-  Keyboard,
   Lamp,
   Pinboard,
   Plant,
   Room,
   StickyNotes,
   Stopwatch,
-  TodayMonitor,
+  TodayNotepad,
   WallClock,
-  WeekMonitor,
+  WeekCalendar,
   type WeekData,
 } from './objects'
 
@@ -82,20 +105,58 @@ function useFit() {
   return Math.min(2.6, Math.max(1, 1.75 / (size.width / size.height)))
 }
 
-function CameraRig() {
+const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+
+/**
+ * Places the camera for the screen shape, and flies it in (entering 3D) or out (leaving) during view transitions.
+ * Outside transitions the user orbits freely.
+ */
+function CameraRig({ phase }: { phase: Phase }) {
   const { camera } = useThree()
   const k = useFit()
+  const anim = useRef<{ from: Vector3; to: Vector3; start: number; duration: number } | null>(null)
+
   useEffect(() => {
-    camera.position.set(TARGET[0] + OFFSET[0] * k, TARGET[1] + OFFSET[1] * k, TARGET[2] + OFFSET[2] * k)
+    const target = new Vector3(...TARGET)
+    const home = new Vector3(...OFFSET).multiplyScalar(k).add(target)
+    // Far away, higher up and a little to the side: where the camera starts its fly-in.
+    const far = new Vector3(...OFFSET).multiplyScalar(k * 2.6).add(target).add(new Vector3(0.9, 1.1, 0))
+    const fly = (to: Vector3, duration: number) => {
+      anim.current = { from: camera.position.clone(), to, start: performance.now(), duration }
+    }
+    if (phase === 'lift') camera.position.copy(far)
+    else if (phase === 'away') fly(home, 1400)
+    else if (phase === 'leave') fly(far, 700)
+    else if (phase === 'idle' && !anim.current) camera.position.copy(home)
+    camera.lookAt(target)
+  }, [camera, k, phase])
+
+  useFrame(() => {
+    const a = anim.current
+    if (!a) return
+    const t = Math.min(1, (performance.now() - a.start) / a.duration)
+    camera.position.lerpVectors(a.from, a.to, ease(t))
     camera.lookAt(...TARGET)
-  }, [camera, k])
+    if (t >= 1) anim.current = null
+  })
   return null
 }
 
-function Controls() {
+/** Tells the layout the desk has drawn its first frames, so the transition can reveal it. */
+function Ready({ onReady }: { onReady?: () => void }) {
+  const frames = useRef(0)
+  useFrame(() => {
+    frames.current += 1
+    if (frames.current === 3) onReady?.()
+  })
+  return null
+}
+
+function Controls({ enabled }: { enabled: boolean }) {
   const k = useFit()
   return (
     <OrbitControls
+      enabled={enabled}
       target={TARGET}
       enablePan={false}
       minDistance={1.1}
@@ -140,9 +201,11 @@ function Lighting({ dark }: { dark: boolean }) {
 // Page
 // ---------------------------------------------------------------------------
 
-export function DeskPage() {
+export function DeskPage({ onReady }: { onReady?: () => void }) {
   const workspace = useWorkspace().data!
-  const navigate = useNavigate()
+  const { phase, switchTo } = useView()
+  const goTo = (path: string) => switchTo('2d', path)
+  const { setColorScheme } = useMantineColorScheme()
   const dark = useComputedColorScheme('light') === 'dark'
   const projectsData = useProjects().data
   const tasksData = useTasks().data
@@ -154,7 +217,6 @@ export function DeskPage() {
   const running = runningQuery.data ?? null
   const actions = useTimerActions()
   const saveTask = useSave<Task>('tasks')
-  const descriptionRef = useRef<HTMLInputElement>(null)
 
   const weekStart = useMemo(() => startOfWeek(dayjs(), workspace.week_start), [workspace.week_start])
   const weekEntries = useTimeEntries(weekStart.toISOString()).data
@@ -329,7 +391,7 @@ export function DeskPage() {
   }, [running, elapsed])
 
   return (
-    <Box pos="relative" h="calc(100dvh - 56px)" style={{ overflow: 'hidden' }}>
+    <Box pos="relative" h="100dvh" style={{ overflow: 'hidden' }}>
       <Canvas shadows camera={{ position: [0, 1.8, 1.85], fov: 42 }} dpr={[1, 2]}>
         <color attach="background" args={[dark ? '#16171a' : '#e9e3d8']} />
         <fog attach="fog" args={[dark ? '#16171a' : '#e9e3d8', 5, 11]} />
@@ -338,9 +400,8 @@ export function DeskPage() {
           <Room dark={dark} />
           <Plant />
           <Lamp dark={dark} />
-          <Keyboard onClick={() => descriptionRef.current?.focus()} />
-          <WeekMonitor data={week} onClick={() => navigate('/reports')} />
-          <TodayMonitor
+          <WeekCalendar data={week} onClick={() => goTo('/reports')} />
+          <TodayNotepad
             lines={lines}
             total={formatDuration(todaySeconds, false)}
             running={running ? { elapsed: formatDuration(elapsed), label: clip(describe(running).text, 40) } : null}
@@ -361,15 +422,32 @@ export function DeskPage() {
             onAdd={() => setNewTask('')}
           />
           <WallClock dark={dark} />
-          <Pinboard items={pins} onOpen={(id) => navigate(`/invoices/${id}`)} onNew={() => navigate('/invoices/new')} />
+          <Pinboard items={pins} onOpen={(id) => goTo(`/invoices/${id}`)} onNew={() => goTo('/invoices/new')} />
           <ContactShadows position={[0, DESK_SHADOW_Y, 0]} opacity={0.3} scale={3.2} blur={2.2} far={0.6} resolution={512} />
+          <Ready onReady={onReady} />
         </Suspense>
-        <CameraRig />
-        <Controls />
+        <CameraRig phase={phase} />
+        <Controls enabled={phase === 'idle'} />
       </Canvas>
 
+      {/* Toolbar */}
+      <Paper pos="absolute" top={12} left={12} px="sm" py={6} withBorder shadow="sm">
+        <Group gap="sm" wrap="nowrap">
+          <Group gap={6} wrap="nowrap">
+            <IconClockHour4 size={20} color="var(--mantine-color-indigo-6)" />
+            <Text fw={700}>Cadence</Text>
+          </Group>
+          <ViewSwitch />
+          <Tooltip label="Toggle dark mode">
+            <ActionIcon variant="default" onClick={() => setColorScheme(dark ? 'light' : 'dark')} aria-label="Toggle dark mode">
+              {dark ? <IconSun size={16} /> : <IconMoon size={16} />}
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      </Paper>
+
       {/* Hint */}
-      <Paper pos="absolute" top={12} left={12} px="sm" py={6} withBorder shadow="xs" maw={360} style={{ opacity: 0.94 }} visibleFrom="sm">
+      <Paper pos="absolute" top={62} left={12} px="sm" py={6} withBorder shadow="xs" maw={360} style={{ opacity: 0.94 }} visibleFrom="sm">
         <Text size="xs" c="dimmed">
           Click a <b>folder</b> to pick a project, a <b>sticky note</b> for a task, the <b>stopwatch</b> to start or stop.
           Hover the folders for <b>+ New project</b>. Drag to look around, scroll to zoom.
@@ -396,14 +474,16 @@ export function DeskPage() {
             </Text>
           )}
           <Group justify="space-between" mt={6}>
-            {draft.billable ? (
+            {!ratesData ? (
+              <span />
+            ) : draft.billable ? (
               <RateLabel rate={rate} currency={currency} own={draft.taskId ? 'task' : 'project'} />
             ) : (
               <Text size="xs" c="dimmed">
                 Non-billable
               </Text>
             )}
-            <Button size="compact-xs" variant="subtle" rightSection={<IconExternalLink size={12} />} onClick={() => navigate(`/projects/${selectedProject.id}`)}>
+            <Button size="compact-xs" variant="subtle" rightSection={<IconExternalLink size={12} />} onClick={() => goTo(`/projects/${selectedProject.id}`)}>
               Open
             </Button>
           </Group>
@@ -414,7 +494,6 @@ export function DeskPage() {
       <Paper pos="absolute" bottom={16} left="50%" p="xs" withBorder shadow="md" style={{ transform: 'translateX(-50%)', width: 'min(920px, calc(100% - 24px))' }}>
         <Group gap="xs" wrap="nowrap">
           <TextInput
-            ref={descriptionRef}
             style={{ flex: 1 }}
             placeholder="What are you working on?"
             value={draft.description}

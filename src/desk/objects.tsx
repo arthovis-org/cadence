@@ -185,76 +185,9 @@ export function Lamp({ dark }: { dark: boolean }) {
   )
 }
 
-export function Keyboard({ onClick }: { onClick: () => void }) {
-  const { hovered, bind } = useHover()
-  return (
-    <group position={[0, DESK_Y, 0.18]} onClick={click(onClick)} {...bind}>
-      <RoundedBox args={[0.6, 0.022, 0.19]} radius={0.008} smoothness={3} position={[0, 0.011, 0]} castShadow receiveShadow>
-        <meshStandardMaterial color={hovered ? '#e7ecff' : '#dee2e6'} roughness={0.5} />
-      </RoundedBox>
-      {Array.from({ length: 4 }, (_, row) =>
-        Array.from({ length: 14 }, (_, col) => (
-          <mesh key={`${row}-${col}`} position={[-0.26 + col * 0.04, 0.026, -0.06 + row * 0.04]} castShadow>
-            <boxGeometry args={[0.032, 0.01, 0.032]} />
-            <meshStandardMaterial color="#f8f9fa" roughness={0.4} />
-          </mesh>
-        )),
-      )}
-      <mesh position={[0, 0.026, 0.085]}>
-        <boxGeometry args={[0.24, 0.01, 0.024]} />
-        <meshStandardMaterial color="#f8f9fa" roughness={0.4} />
-      </mesh>
-      {/* Mouse */}
-      <mesh position={[0.42, 0.018, 0.02]} scale={[0.035, 0.018, 0.055]} castShadow>
-        <sphereGeometry args={[1, 24, 16]} />
-        <meshStandardMaterial color="#dee2e6" roughness={0.4} />
-      </mesh>
-    </group>
-  )
-}
-
 // ---------------------------------------------------------------------------
-// Monitors
+// Desk calendar: this week at a glance
 // ---------------------------------------------------------------------------
-
-export const SCREEN_W = 0.84
-export const SCREEN_H = 0.48
-
-function MonitorFrame({
-  position,
-  rotationY,
-  onClick,
-  children,
-}: {
-  position: [number, number, number]
-  rotationY: number
-  onClick?: () => void
-  children: (hovered: boolean) => ReactNode
-}) {
-  const { hovered, bind } = useHover()
-  const screenY = 0.14 + SCREEN_H / 2
-  return (
-    <group position={position} rotation={[0, rotationY, 0]} onClick={onClick ? click(onClick) : undefined} {...(onClick ? bind : {})}>
-      <RoundedBox args={[0.3, 0.018, 0.2]} radius={0.008} position={[0, 0.009, 0.02]} castShadow>
-        <meshStandardMaterial color="#2b2d31" metalness={0.5} roughness={0.35} />
-      </RoundedBox>
-      <mesh position={[0, 0.11, -0.03]} castShadow>
-        <boxGeometry args={[0.05, 0.2, 0.025]} />
-        <meshStandardMaterial color="#2b2d31" metalness={0.5} roughness={0.35} />
-      </mesh>
-      <RoundedBox args={[SCREEN_W + 0.035, SCREEN_H + 0.035, 0.03]} radius={0.012} smoothness={4} position={[0, screenY, 0]} castShadow>
-        <meshStandardMaterial color="#17181c" metalness={0.3} roughness={0.4} />
-      </RoundedBox>
-      <mesh position={[0, screenY, 0.0155]}>
-        <planeGeometry args={[SCREEN_W, SCREEN_H]} />
-        <meshBasicMaterial color={hovered ? '#1b2447' : '#12162b'} toneMapped={false} />
-      </mesh>
-      {/* Soft glow on the desk in front of the screen */}
-      <pointLight position={[0, screenY, 0.25]} intensity={0.25} distance={0.9} color="#748ffc" />
-      <group position={[0, screenY, 0.017]}>{children(hovered)}</group>
-    </group>
-  )
-}
 
 export interface WeekData {
   hours: string
@@ -263,78 +196,112 @@ export interface WeekData {
   top: { name: string; color: string; hours: string; share: number }[]
 }
 
-export function WeekMonitor({ data, onClick }: { data: WeekData; onClick: () => void }) {
+const CAL_W = 0.96
+const CAL_H = 0.5
+const CAL_TILT = 0.2
+
+export function WeekCalendar({ data, onClick }: { data: WeekData; onClick: () => void }) {
+  const { hovered, bind } = useHover()
+  const lift = useEase([0, hovered ? 0.012 : 0, 0])
   const max = Math.max(1, ...data.bars.map((b) => b.value))
-  const L = -SCREEN_W / 2 + 0.04
+  const L = -CAL_W / 2 + 0.05
   return (
-    <MonitorFrame position={[-0.47, DESK_Y, -0.42]} rotationY={0.16} onClick={onClick}>
-      {(hovered) => (
-        <>
-          <Label position={[L, 0.195, 0]} fontSize={0.02} color="#91a7ff" anchorX="left" bold letterSpacing={0.08}>
-            THIS WEEK
-          </Label>
-          <Label position={[-L, 0.195, 0]} fontSize={0.016} color={hovered ? '#ffffff' : '#5c6bc0'} anchorX="right">
-            Open reports ↗
-          </Label>
-          <Label position={[L, 0.13, 0]} fontSize={0.075} color="#ffffff" anchorX="left" bold>
-            {data.hours}
-          </Label>
-          <Label position={[L, 0.07, 0]} fontSize={0.024} color="#8ce99a" anchorX="left">
-            {data.amount} billable
-          </Label>
-          {/* Daily bars */}
-          {data.bars.map((b, i) => {
-            const h = Math.max(0.004, (b.value / max) * 0.16)
-            const x = L + 0.03 + i * 0.058
-            return (
-              <group key={b.label}>
-                <mesh position={[x, -0.18 + h / 2, 0]}>
-                  <planeGeometry args={[0.036, h]} />
-                  <meshBasicMaterial color={b.today ? '#91a7ff' : '#4263eb'} toneMapped={false} />
-                </mesh>
-                {b.value > 0 && (
-                  <Label position={[x, -0.17 + h, 0]} fontSize={0.012} color="#adb5bd">
-                    {b.value.toFixed(1)}
-                  </Label>
-                )}
-                <Label position={[x, -0.2, 0]} fontSize={0.014} color={b.today ? '#ffffff' : '#868e96'}>
-                  {b.label}
-                </Label>
-              </group>
-            )
-          })}
-          {/* Top projects */}
-          <Label position={[0.04, 0.13, 0]} fontSize={0.016} color="#868e96" anchorX="left" bold letterSpacing={0.06}>
-            TOP PROJECTS
-          </Label>
-          {data.top.map((p, i) => (
-            <group key={p.name} position={[0.04, 0.085 - i * 0.075, 0]}>
-              <Label position={[0, 0.012, 0]} fontSize={0.017} color="#e9ecef" anchorX="left" maxWidth={0.26}>
-                {p.name.length > 26 ? `${p.name.slice(0, 25)}…` : p.name}
-              </Label>
-              <Label position={[0.33, 0.012, 0]} fontSize={0.017} color="#ffffff" anchorX="right" bold>
-                {p.hours}
-              </Label>
-              <mesh position={[0.165, -0.014, 0]}>
-                <planeGeometry args={[0.33, 0.01]} />
-                <meshBasicMaterial color="#25283d" toneMapped={false} />
-              </mesh>
-              <mesh position={[0.165 * p.share, -0.014, 0.0005]}>
-                <planeGeometry args={[Math.max(0.004, 0.33 * p.share), 0.01]} />
-                <meshBasicMaterial color={p.color} toneMapped={false} />
-              </mesh>
-            </group>
+    <group position={[-0.02, DESK_Y, -0.36]} onClick={click(onClick)} {...bind}>
+      <group ref={lift}>
+        {/* Back leg of the tent-style stand */}
+        <mesh position={[0, CAL_H / 2 - 0.02, -0.12]} rotation={[-0.32, 0, 0]} castShadow>
+          <boxGeometry args={[CAL_W - 0.1, CAL_H, 0.01]} />
+          <meshStandardMaterial color="#343a40" roughness={0.6} />
+        </mesh>
+        <group rotation={[-CAL_TILT, 0, 0]}>
+          {/* Board and paper */}
+          <RoundedBox args={[CAL_W, CAL_H, 0.014]} radius={0.006} smoothness={3} position={[0, CAL_H / 2, 0]} castShadow>
+            <meshStandardMaterial color="#343a40" roughness={0.6} />
+          </RoundedBox>
+          <mesh position={[0, CAL_H / 2 - 0.015, 0.0075]}>
+            <planeGeometry args={[CAL_W - 0.03, CAL_H - 0.06]} />
+            <meshStandardMaterial color={hovered ? '#ffffff' : '#fbfaf7'} roughness={0.9} />
+          </mesh>
+          {/* Spiral binding */}
+          {Array.from({ length: 16 }, (_, i) => (
+            <mesh key={i} position={[-CAL_W / 2 + 0.06 + i * ((CAL_W - 0.12) / 15), CAL_H - 0.02, 0.008]} rotation={[0, HALF_PI, 0]}>
+              <torusGeometry args={[0.012, 0.0025, 8, 16]} />
+              <meshStandardMaterial color="#adb5bd" metalness={0.8} roughness={0.25} />
+            </mesh>
           ))}
-          {data.top.length === 0 && (
-            <Label position={[0.2, 0.05, 0]} fontSize={0.016} color="#5c5f66">
-              Nothing tracked yet this week
+          <group position={[0, CAL_H / 2 - 0.015, 0.009]}>
+            <Label position={[L, 0.17, 0]} fontSize={0.019} color="#4c6ef5" anchorX="left" bold letterSpacing={0.08}>
+              THIS WEEK
             </Label>
-          )}
-        </>
-      )}
-    </MonitorFrame>
+            <Label position={[-L, 0.17, 0]} fontSize={0.015} color={hovered ? '#4c6ef5' : '#adb5bd'} anchorX="right">
+              Open reports ↗
+            </Label>
+            <Label position={[L, 0.11, 0]} fontSize={0.07} color="#212529" anchorX="left" bold>
+              {data.hours}
+            </Label>
+            <Label position={[L, 0.055, 0]} fontSize={0.021} color="#2f9e44" anchorX="left" bold>
+              {`${data.amount} billable`}
+            </Label>
+            {data.bars.map((b, i) => {
+              const h = Math.max(0.004, (b.value / max) * 0.14)
+              const x = L + 0.025 + i * 0.056
+              return (
+                <group key={b.label}>
+                  <mesh position={[x, -0.16 + h / 2, 0]}>
+                    <planeGeometry args={[0.034, h]} />
+                    <meshBasicMaterial color={b.today ? '#4c6ef5' : '#91a7ff'} />
+                  </mesh>
+                  {b.value > 0 && (
+                    <Label position={[x, -0.15 + h, 0]} fontSize={0.011} color="#868e96">
+                      {b.value.toFixed(1)}
+                    </Label>
+                  )}
+                  <Label position={[x, -0.18, 0]} fontSize={0.013} color={b.today ? '#212529' : '#868e96'} bold={b.today}>
+                    {b.label}
+                  </Label>
+                </group>
+              )
+            })}
+            <mesh position={[0.03, -0.02, 0]}>
+              <planeGeometry args={[0.002, 0.34]} />
+              <meshBasicMaterial color="#e9ecef" />
+            </mesh>
+            <Label position={[0.07, 0.11, 0]} fontSize={0.015} color="#868e96" anchorX="left" bold letterSpacing={0.06}>
+              TOP PROJECTS
+            </Label>
+            {data.top.map((p, i) => (
+              <group key={p.name} position={[0.07, 0.065 - i * 0.065, 0]}>
+                <Label position={[0, 0.01, 0]} fontSize={0.016} color="#343a40" anchorX="left">
+                  {p.name.length > 30 ? `${p.name.slice(0, 29)}…` : p.name}
+                </Label>
+                <Label position={[0.35, 0.01, 0]} fontSize={0.016} color="#212529" anchorX="right" bold>
+                  {p.hours}
+                </Label>
+                <mesh position={[0.175, -0.014, 0]}>
+                  <planeGeometry args={[0.35, 0.009]} />
+                  <meshBasicMaterial color="#f1f3f5" />
+                </mesh>
+                <mesh position={[0.175 * p.share, -0.014, 0.0005]}>
+                  <planeGeometry args={[Math.max(0.004, 0.35 * p.share), 0.009]} />
+                  <meshBasicMaterial color={p.color} />
+                </mesh>
+              </group>
+            ))}
+            {data.top.length === 0 && (
+              <Label position={[0.24, 0.02, 0]} fontSize={0.015} color="#adb5bd">
+                Nothing tracked yet this week
+              </Label>
+            )}
+          </group>
+        </group>
+      </group>
+    </group>
   )
 }
+
+// ---------------------------------------------------------------------------
+// Notepad on a small stand: today
+// ---------------------------------------------------------------------------
 
 export interface TodayLine {
   key: string
@@ -345,7 +312,10 @@ export interface TodayLine {
   running: boolean
 }
 
-export function TodayMonitor({
+const PAD_W = 0.56
+const PAD_H = 0.4
+
+export function TodayNotepad({
   lines,
   total,
   running,
@@ -356,74 +326,95 @@ export function TodayMonitor({
   running: { elapsed: string; label: string } | null
   onClick: () => void
 }) {
-  const L = -SCREEN_W / 2 + 0.04
+  const { hovered, bind } = useHover()
+  const lift = useEase([0, hovered ? 0.01 : 0, 0])
   const dot = useRef<Mesh>(null)
   useFrame(({ clock }) => {
     if (dot.current) dot.current.scale.setScalar(0.8 + Math.sin(clock.elapsedTime * 4) * 0.2)
   })
+  const done = lines.filter((l) => !l.running)
+  const L = -PAD_W / 2 + 0.04
   return (
-    <MonitorFrame position={[0.47, DESK_Y, -0.42]} rotationY={-0.16} onClick={onClick}>
-      {(hovered) => (
-        <>
-          <Label position={[L, 0.195, 0]} fontSize={0.02} color="#91a7ff" anchorX="left" bold letterSpacing={0.08}>
-            TODAY
-          </Label>
-          <Label position={[-L, 0.195, 0]} fontSize={0.02} color="#ffffff" anchorX="right" bold>
-            {total}
-          </Label>
-          {running ? (
-            <group position={[L, 0.135, 0]}>
-              <mesh ref={dot} position={[0.012, 0, 0]}>
-                <circleGeometry args={[0.012, 20]} />
-                <meshBasicMaterial color="#ff6b6b" toneMapped={false} />
-              </mesh>
-              <Label position={[0.035, 0, 0]} fontSize={0.04} color="#ff8787" anchorX="left" bold>
-                {running.elapsed}
-              </Label>
-              <Label position={[0.25, 0, 0]} fontSize={0.017} color="#e9ecef" anchorX="left" maxWidth={0.5}>
-                {running.label.length > 40 ? `${running.label.slice(0, 39)}…` : running.label}
-              </Label>
-            </group>
-          ) : (
-            <Label position={[L, 0.135, 0]} fontSize={0.018} color="#5c5f66" anchorX="left">
-              No timer running
-            </Label>
-          )}
-          <mesh position={[0, 0.098, 0]}>
-            <planeGeometry args={[SCREEN_W - 0.08, 0.002]} />
-            <meshBasicMaterial color="#2c2f45" toneMapped={false} />
+    <group position={[0.06, DESK_Y, 0.2]} rotation={[0, -0.06, 0]} onClick={click(onClick)} {...bind}>
+      <group ref={lift}>
+        {/* Wedge stand */}
+        <mesh position={[0, 0.03, -0.1]} rotation={[0.9, 0, 0]} castShadow>
+          <boxGeometry args={[PAD_W - 0.1, 0.012, 0.16]} />
+          <meshStandardMaterial color="#495057" roughness={0.5} />
+        </mesh>
+        <group position={[0, 0.012, 0.06]} rotation={[-HALF_PI + 0.55, 0, 0]}>
+          <RoundedBox args={[PAD_W, PAD_H, 0.012]} radius={0.006} smoothness={3} position={[0, PAD_H / 2, 0]} castShadow receiveShadow>
+            <meshStandardMaterial color="#6b4f3a" roughness={0.7} />
+          </RoundedBox>
+          <mesh position={[0, PAD_H / 2 - 0.01, 0.0065]}>
+            <planeGeometry args={[PAD_W - 0.03, PAD_H - 0.04]} />
+            <meshStandardMaterial color={hovered ? '#ffffff' : '#fffdf6'} roughness={0.95} />
           </mesh>
-          {lines
-            .filter((l) => !l.running)
-            .slice(0, 6)
-            .map((l, i) => (
-              <group key={l.key} position={[0, 0.065 - i * 0.042, 0]}>
-                <mesh position={[L + 0.006, 0, 0]}>
-                  <circleGeometry args={[0.006, 12]} />
-                  <meshBasicMaterial color={l.color} toneMapped={false} />
+          {/* Clip */}
+          <RoundedBox args={[0.16, 0.035, 0.018]} radius={0.006} position={[0, PAD_H - 0.012, 0.012]}>
+            <meshStandardMaterial color="#adb5bd" metalness={0.8} roughness={0.25} />
+          </RoundedBox>
+          <group position={[0, PAD_H / 2 - 0.02, 0.008]}>
+            <Label position={[L, 0.125, 0]} fontSize={0.022} color="#212529" anchorX="left" bold>
+              Today
+            </Label>
+            <Label position={[-L, 0.125, 0]} fontSize={0.022} color="#212529" anchorX="right" bold>
+              {total}
+            </Label>
+            {running ? (
+              <group position={[L, 0.085, 0]}>
+                <mesh ref={dot} position={[0.008, 0, 0]}>
+                  <circleGeometry args={[0.008, 20]} />
+                  <meshBasicMaterial color="#e03131" />
                 </mesh>
-                <Label position={[L + 0.022, 0, 0]} fontSize={0.016} color="#868e96" anchorX="left">
+                <Label position={[0.024, 0, 0]} fontSize={0.02} color="#e03131" anchorX="left" bold>
+                  {running.elapsed}
+                </Label>
+                <Label position={[0.13, 0, 0]} fontSize={0.015} color="#495057" anchorX="left">
+                  {running.label.length > 38 ? `${running.label.slice(0, 37)}…` : running.label}
+                </Label>
+              </group>
+            ) : (
+              <Label position={[L, 0.085, 0]} fontSize={0.015} color="#adb5bd" anchorX="left">
+                No timer running
+              </Label>
+            )}
+            {/* Ruled lines */}
+            {Array.from({ length: 6 }, (_, i) => (
+              <mesh key={i} position={[0, 0.043 - i * 0.034 - 0.016, -0.0005]}>
+                <planeGeometry args={[PAD_W - 0.06, 0.0015]} />
+                <meshBasicMaterial color="#d0ebff" />
+              </mesh>
+            ))}
+            {done.slice(0, 6).map((l, i) => (
+              <group key={l.key} position={[0, 0.043 - i * 0.034, 0]}>
+                <mesh position={[L + 0.005, 0, 0]}>
+                  <circleGeometry args={[0.005, 12]} />
+                  <meshBasicMaterial color={l.color} />
+                </mesh>
+                <Label position={[L + 0.018, 0, 0]} fontSize={0.014} color="#868e96" anchorX="left">
                   {l.time}
                 </Label>
-                <Label position={[L + 0.09, 0, 0]} fontSize={0.017} color="#e9ecef" anchorX="left">
+                <Label position={[L + 0.075, 0, 0]} fontSize={0.015} color="#343a40" anchorX="left">
                   {l.text}
                 </Label>
-                <Label position={[-L, 0, 0]} fontSize={0.017} color="#ffffff" anchorX="right" bold>
+                <Label position={[-L, 0, 0]} fontSize={0.015} color="#212529" anchorX="right" bold>
                   {l.duration}
                 </Label>
               </group>
             ))}
-          {lines.filter((l) => !l.running).length === 0 && (
-            <Label position={[0, 0, 0]} fontSize={0.017} color="#5c5f66">
-              Nothing logged yet today
+            {done.length === 0 && (
+              <Label position={[0, 0, 0]} fontSize={0.015} color="#adb5bd">
+                Nothing logged yet today
+              </Label>
+            )}
+            <Label position={[0, -0.165, 0]} fontSize={0.014} color={hovered ? '#4c6ef5' : '#adb5bd'}>
+              + Click to add time manually
             </Label>
-          )}
-          <Label position={[0, -0.205, 0]} fontSize={0.016} color={hovered ? '#ffffff' : '#5c6bc0'}>
-            + Click to add time manually
-          </Label>
-        </>
-      )}
-    </MonitorFrame>
+          </group>
+        </group>
+      </group>
+    </group>
   )
 }
 
