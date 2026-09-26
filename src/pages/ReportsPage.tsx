@@ -9,7 +9,6 @@ import {
   Loader,
   Menu,
   Modal,
-  MultiSelect,
   Pagination,
   Paper,
   Progress,
@@ -70,6 +69,7 @@ import {
 import { formatDuration } from '../lib/time'
 import type { SavedReport, TimeEntry } from '../lib/types'
 import { EntryForm } from '../components/EntryForm'
+import { FilterMultiSelect } from '../components/FilterMultiSelect'
 
 interface ReportConfig {
   preset: RangePreset
@@ -341,32 +341,26 @@ export function ReportsPage() {
             />
           </Group>
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }} spacing="sm">
-            <MultiSelect
+            <FilterMultiSelect
               label="Clients"
-              placeholder={config.filters.clientIds.length ? undefined : 'All clients'}
+              placeholder="All clients"
               data={clientOptions}
               value={config.filters.clientIds}
               onChange={(v) => setFilters({ clientIds: v })}
-              searchable
-              clearable
             />
-            <MultiSelect
+            <FilterMultiSelect
               label="Projects"
-              placeholder={config.filters.projectIds.length ? undefined : 'All projects'}
+              placeholder="All projects"
               data={projectOptions}
               value={config.filters.projectIds}
               onChange={(v) => setFilters({ projectIds: v })}
-              searchable
-              clearable
             />
-            <MultiSelect
+            <FilterMultiSelect
               label="Tasks"
-              placeholder={config.filters.taskIds.length ? undefined : 'All tasks'}
+              placeholder="All tasks"
               data={taskOptions}
               value={config.filters.taskIds}
               onChange={(v) => setFilters({ taskIds: v })}
-              searchable
-              clearable
             />
             <Select
               label="Billable"
