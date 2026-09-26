@@ -26,7 +26,6 @@ export interface ReportFilters {
   taskIds: string[]
   billable: 'all' | 'billable' | 'nonbillable'
   invoiced: 'all' | 'invoiced' | 'uninvoiced'
-  search: string
 }
 
 export const EMPTY_FILTERS: ReportFilters = {
@@ -35,7 +34,6 @@ export const EMPTY_FILTERS: ReportFilters = {
   taskIds: [],
   billable: 'all',
   invoiced: 'all',
-  search: '',
 }
 
 export interface ReportContext {
@@ -105,15 +103,13 @@ function matchesIds(ids: string[], id: string | null | undefined): boolean {
 }
 
 export function applyFilters(rows: ReportRow[], f: ReportFilters): ReportRow[] {
-  const search = f.search.trim().toLowerCase()
   return rows.filter(
     (r) =>
       matchesIds(f.clientIds, r.client?.id) &&
       matchesIds(f.projectIds, r.project?.id) &&
       matchesIds(f.taskIds, r.task?.id) &&
       (f.billable === 'all' || (f.billable === 'billable') === r.entry.billable) &&
-      (f.invoiced === 'all' || (f.invoiced === 'invoiced') === !!r.entry.invoice_id) &&
-      (!search || r.entry.description.toLowerCase().includes(search)),
+      (f.invoiced === 'all' || (f.invoiced === 'invoiced') === !!r.entry.invoice_id),
   )
 }
 

@@ -31,7 +31,6 @@ import {
   IconChevronRight,
   IconDownload,
   IconPrinter,
-  IconSearch,
   IconSelector,
   IconTrash,
 } from '@tabler/icons-react'
@@ -245,8 +244,7 @@ export function ReportsPage() {
     config.filters.projectIds.length +
     config.filters.taskIds.length +
     (config.filters.billable !== 'all' ? 1 : 0) +
-    (config.filters.invoiced !== 'all' ? 1 : 0) +
-    (config.filters.search ? 1 : 0)
+    (config.filters.invoiced !== 'all' ? 1 : 0)
 
   return (
     <Stack>
@@ -312,14 +310,13 @@ export function ReportsPage() {
 
       <Paper withBorder p="md" className="no-print">
         <Stack gap="sm">
-          <Group align="flex-end" gap="sm">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 4, xl: 7 }} spacing="sm">
             <Select
               label="Time frame"
               data={RANGE_PRESETS}
               value={config.preset}
               allowDeselect={false}
               onChange={(v) => update({ preset: (v as RangePreset) ?? 'this_month', custom: range })}
-              w={170}
             />
             <DatePickerInput
               type="range"
@@ -328,19 +325,8 @@ export function ReportsPage() {
               onChange={(v) => update({ preset: 'custom', custom: v as [string | null, string | null] })}
               valueFormat="MMM D, YYYY"
               firstDayOfWeek={workspace.week_start as 0 | 1 | 2 | 3 | 4 | 5 | 6}
-              w={270}
               allowSingleDateInRange
             />
-            <TextInput
-              label="Description"
-              placeholder="Search"
-              leftSection={<IconSearch size={16} />}
-              value={config.filters.search}
-              onChange={(e) => setFilters({ search: e.currentTarget.value })}
-              style={{ flex: 1, minWidth: 160 }}
-            />
-          </Group>
-          <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }} spacing="sm">
             <FilterMultiSelect
               label="Clients"
               placeholder="All clients"
