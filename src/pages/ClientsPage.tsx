@@ -21,16 +21,13 @@ import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { IconArchive, IconDots, IconFileInvoice, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
 import { useNavigate } from 'react-router-dom'
-import { useClients, useProjects, useRates, useRemove, useSave, useWorkspace } from '../data/hooks'
-import { CURRENCIES, formatMoney } from '../lib/money'
-import { resolveRate, SOURCE_LABEL } from '../lib/rates'
+import { useClients, useProjects, useRemove, useSave, useWorkspace } from '../data/hooks'
+import { CURRENCIES } from '../lib/money'
 import type { Client } from '../lib/types'
-import { RateEditor } from '../components/RateEditor'
 
 export function ClientsPage() {
   const clients = useClients()
   const projects = useProjects().data ?? []
-  const rates = useRates().data ?? []
   const workspace = useWorkspace().data!
   const save = useSave<Client>('clients')
   const remove = useRemove('clients')
@@ -75,14 +72,12 @@ export function ClientsPage() {
               <Table.Tr>
                 <Table.Th>Name</Table.Th>
                 <Table.Th>Projects</Table.Th>
-                <Table.Th>Rate</Table.Th>
                 <Table.Th>Currency</Table.Th>
                 <Table.Th w={50} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {list.map((c) => {
-                const rate = resolveRate(rates, { clientId: c.id })
                 const currency = c.currency ?? workspace.currency
                 return (
                   <Table.Tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => setEditing(c)}>
@@ -94,10 +89,6 @@ export function ClientsPage() {
                       {c.email && <Text size="xs" c="dimmed">{c.email}</Text>}
                     </Table.Td>
                     <Table.Td>{projects.filter((p) => p.client_id === c.id).length}</Table.Td>
-                    <Table.Td className="tabular">
-                      {formatMoney(rate.cents, currency)}/h{' '}
-                      {rate.source !== 'client' && <Text span size="xs" c="dimmed">({SOURCE_LABEL[rate.source]})</Text>}
-                    </Table.Td>
                     <Table.Td>{currency}</Table.Td>
                     <Table.Td onClick={(e) => e.stopPropagation()}>
                       <Menu position="bottom-end">
@@ -130,7 +121,7 @@ export function ClientsPage() {
               })}
               {list.length === 0 && !clients.isPending && (
                 <Table.Tr>
-                  <Table.Td colSpan={5}>
+                  <Table.Td colSpan={4}>
                     <Text c="dimmed" ta="center" py="lg">
                       No clients yet.
                     </Text>
@@ -215,13 +206,6 @@ function ClientForm({ client, defaultCurrency, onDone }: { client: Client | null
           </Group>
         </Stack>
       </form>
-      {client ? (
-        <RateEditor scope={{ level: 'client', id: client.id }} parent={{}} currency={client.currency ?? defaultCurrency} />
-      ) : (
-        <Text size="xs" c="dimmed">
-          You can set a client-specific rate after creating the client.
-        </Text>
-      )}
     </Stack>
   )
 }

@@ -29,6 +29,7 @@ import { formatMoney, fromCents, toCents } from '../lib/money'
 import { buildLines, LINE_GROUPINGS, lineAmount, type LineGrouping } from '../lib/invoicing'
 import { addMoney, buildRows, formatMoneyTotals, type MoneyTotals } from '../lib/report'
 import { formatHours } from '../lib/time'
+import { MissingRatesAlert } from '../components/MissingRatesAlert'
 import type { InvoiceSnapshot } from '../lib/types'
 
 interface ExtraLine {
@@ -316,6 +317,7 @@ export function NewInvoicePage() {
                   {client ? `${client.name} · ${currency}` : 'Choose a client to see unbilled time'}
                 </Text>
               </Group>
+              <MissingRatesAlert rows={selectedRows} context="invoice" />
               <Table.ScrollContainer minWidth={560}>
                 <Table verticalSpacing="xs">
                   <Table.Thead>

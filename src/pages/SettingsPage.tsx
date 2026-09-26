@@ -7,7 +7,6 @@ import dayjs from 'dayjs'
 import { fetchAllRows, useUpdateWorkspace, useWorkspace } from '../data/hooks'
 import { CURRENCIES } from '../lib/money'
 import type { TableName, Workspace } from '../lib/types'
-import { DefaultRateEditor } from '../components/DefaultRateEditor'
 import { AppearanceSettings } from '../components/AppearanceSettings'
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -154,7 +153,6 @@ export function SettingsPage() {
         <Grid.Col span={{ base: 12, md: 5 }}>
           <Stack>
             <AppearanceSettings />
-            <DefaultRateEditor currency={workspace.currency} />
 
             <Paper withBorder p="md">
               <Stack gap="xs">

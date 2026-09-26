@@ -55,7 +55,6 @@ export interface Task {
 export interface Rate {
   id: string
   workspace_id: string
-  client_id: string | null
   project_id: string | null
   task_id: string | null
   rate_cents: number | null

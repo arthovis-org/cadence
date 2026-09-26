@@ -8,8 +8,9 @@ reports, and invoices with payment receipts (PDF).
 
 ## Rates
 
-Hourly rates cascade: **task → project → client → workspace default**. Each rate has an *effective from* date, so
-raising a rate never changes the value of time already logged before that date.
+Hourly rates are set per **project**, with optional **task** overrides. A rate can apply to all time or start on a
+date, so raising a rate never changes the value of time already logged before that date. Billable time without a
+rate is flagged as "No rate" instead of silently counting as zero.
 
 ## Development
 
@@ -27,6 +28,7 @@ Supabase **SQL Editor** and run it, in order:
 
 1. `20260926000000_init.sql` – tables and security rules
 2. `20260927000000_invoicing.sql` – invoice/receipt numbering, totals, payment status
+3. `20260928000000_project_rates_only.sql` – moves client/default rates onto projects and removes them
 
 ## Deploy
 

@@ -3,8 +3,8 @@ import { Badge, Button, ColorSwatch, Group, Modal, Paper, Select, Stack, Switch,
 import { IconPlus, IconSearch } from '@tabler/icons-react'
 import { useNavigate } from 'react-router-dom'
 import { useClients, useProjects, useRates, useTasks, useWorkspace } from '../data/hooks'
-import { formatMoney } from '../lib/money'
-import { resolveRate, SOURCE_LABEL } from '../lib/rates'
+import { resolveRate } from '../lib/rates'
+import { RateLabel } from '../components/RateLabel'
 import { ProjectForm } from '../components/ProjectForm'
 
 export function ProjectsPage() {
@@ -67,7 +67,7 @@ export function ProjectsPage() {
             <Table.Tbody>
               {list.map((p) => {
                 const client = clients.find((c) => c.id === p.client_id)
-                const rate = resolveRate(rates, { projectId: p.id, clientId: p.client_id })
+                const rate = resolveRate(rates, { projectId: p.id })
                 const currency = client?.currency ?? workspace.currency
                 const projectTasks = tasks.filter((t) => t.project_id === p.id)
                 return (
@@ -84,9 +84,8 @@ export function ProjectsPage() {
                       {projectTasks.filter((t) => !t.done).length}
                       <Text span c="dimmed" size="sm"> / {projectTasks.length}</Text>
                     </Table.Td>
-                    <Table.Td className="tabular">
-                      {formatMoney(rate.cents, currency)}/h{' '}
-                      {rate.source !== 'project' && <Text span size="xs" c="dimmed">({SOURCE_LABEL[rate.source]})</Text>}
+                    <Table.Td>
+                      {p.billable || rate.source !== 'none' ? <RateLabel rate={rate} currency={currency} /> : <Text span size="sm" c="dimmed">—</Text>}
                     </Table.Td>
                     <Table.Td>{p.billable ? 'Yes' : 'No'}</Table.Td>
                   </Table.Tr>

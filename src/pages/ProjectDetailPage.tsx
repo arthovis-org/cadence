@@ -28,7 +28,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useClients, useProjects, useRates, useRemove, useSave, useTasks, useWorkspace } from '../data/hooks'
 import { supabase } from '../lib/supabase'
 import { formatMoney } from '../lib/money'
-import { amountCents, resolveRate, SOURCE_LABEL } from '../lib/rates'
+import { amountCents, resolveRate } from '../lib/rates'
+import { RateLabel } from '../components/RateLabel'
 import { entrySeconds, formatHours, localDate } from '../lib/time'
 import type { Project, Task, TimeEntry } from '../lib/types'
 import { ProjectForm } from '../components/ProjectForm'
@@ -81,7 +82,7 @@ export function ProjectDetailPage() {
       seconds += s
       byTask.set(e.task_id, (byTask.get(e.task_id) ?? 0) + s)
       if (e.billable && project) {
-        const rate = resolveRate(ratesData ?? [], { taskId: e.task_id, projectId: project.id, clientId: project.client_id }, localDate(e.start_at))
+        const rate = resolveRate(ratesData ?? [], { taskId: e.task_id, projectId: project.id }, localDate(e.start_at))
         billableCents += amountCents(s, rate.cents)
       }
     }
@@ -253,7 +254,7 @@ export function ProjectDetailPage() {
                   </Table.Thead>
                   <Table.Tbody>
                     {tasks.map((t) => {
-                      const rate = resolveRate(rates, { taskId: t.id, projectId: project.id, clientId: project.client_id })
+                      const rate = resolveRate(rates, { taskId: t.id, projectId: project.id })
                       const secs = stats.byTask.get(t.id) ?? 0
                       return (
                         <Table.Tr key={t.id}>
@@ -273,9 +274,8 @@ export function ProjectDetailPage() {
                             {formatHours(secs)}
                             {t.estimate_hours ? <Text span size="xs" c="dimmed"> / {t.estimate_hours} h</Text> : null}
                           </Table.Td>
-                          <Table.Td className="tabular">
-                            {formatMoney(rate.cents, currency)}/h{' '}
-                            {rate.source !== 'task' && <Text span size="xs" c="dimmed">({SOURCE_LABEL[rate.source]})</Text>}
+                          <Table.Td>
+                            <RateLabel rate={rate} currency={currency} own="task" />
                           </Table.Td>
                           <Table.Td>
                             <Group gap={4} justify="flex-end" wrap="nowrap">
@@ -307,7 +307,7 @@ export function ProjectDetailPage() {
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Stack>
-            <RateEditor scope={{ level: 'project', id: project.id }} parent={{ clientId: project.client_id }} currency={currency} />
+            <RateEditor scope={{ level: 'project', id: project.id }} currency={currency} />
             {project.notes && (
               <Paper withBorder p="md">
                 <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
@@ -369,7 +369,7 @@ function TaskForm({ task, project, currency, onDone }: { task: Task; project: Pr
       </form>
       <RateEditor
         scope={{ level: 'task', id: task.id }}
-        parent={{ projectId: project.id, clientId: project.client_id }}
+        projectId={project.id}
         currency={currency}
       />
     </Stack>

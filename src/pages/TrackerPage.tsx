@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
-import { ActionIcon, Button, ColorSwatch, Group, Modal, Paper, Stack, Text, Title, Tooltip } from '@mantine/core'
+import { ActionIcon, Badge, Button, ColorSwatch, Group, Modal, Paper, Stack, Text, Title, Tooltip } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { IconCurrencyDollar, IconPencil, IconPlayerPlay, IconTrash } from '@tabler/icons-react'
 import dayjs from 'dayjs'
+import { useNavigate } from 'react-router-dom'
 import { useClients, useProjects, useRates, useRemove, useRunningEntry, useStartTimer, useTasks, useTimeEntries, useWorkspace } from '../data/hooks'
 import { formatMoney } from '../lib/money'
 import { amountCents, resolveRate } from '../lib/rates'
@@ -37,6 +38,7 @@ export function TrackerPage() {
   const remove = useRemove('time_entries')
   const startTimer = useStartTimer()
   const [editing, setEditing] = useState<TimeEntry | 'new' | null>(null)
+  const navigate = useNavigate()
 
   const groups = useMemo(() => {
     const map = new Map<string, TimeEntry[]>()
@@ -52,12 +54,16 @@ export function TrackerPage() {
     (entries.data ?? []).filter((e) => !dayjs(e.start_at).isBefore(weekStart)).reduce((sum, e) => sum + entrySeconds(e), 0) +
     (running ? entrySeconds(running) : 0)
 
-  function amountFor(e: TimeEntry): { cents: number; currency: string } | null {
+  function amountFor(e: TimeEntry): { cents: number; currency: string; missing: boolean } | null {
     if (!e.billable) return null
     const project = projects.find((p) => p.id === e.project_id)
     const client = clients.find((c) => c.id === project?.client_id)
-    const rate = resolveRate(rates, { taskId: e.task_id, projectId: e.project_id, clientId: project?.client_id }, localDate(e.start_at))
-    return { cents: amountCents(entrySeconds(e), rate.cents), currency: client?.currency ?? workspace.currency }
+    const rate = resolveRate(rates, { taskId: e.task_id, projectId: e.project_id }, localDate(e.start_at))
+    return {
+      cents: amountCents(entrySeconds(e), rate.cents),
+      currency: client?.currency ?? workspace.currency,
+      missing: rate.source === 'none',
+    }
   }
 
   function confirmDelete(e: TimeEntry) {
@@ -146,7 +152,23 @@ export function TrackerPage() {
                       {formatDuration(entrySeconds(e), false)}
                     </Text>
                     <Text size="sm" c="dimmed" className="tabular" w={80} ta="right" visibleFrom="xs">
-                      {amount ? formatMoney(amount.cents, amount.currency) : ''}
+                      {amount?.missing ? (
+                        <Tooltip label={project ? 'Set an hourly rate on the project' : 'Billable time needs a project with a rate'}>
+                          <Badge
+                            color="orange"
+                            variant="light"
+                            size="sm"
+                            style={{ cursor: project ? 'pointer' : undefined }}
+                            onClick={() => project && navigate(`/projects/${project.id}`)}
+                          >
+                            No rate
+                          </Badge>
+                        </Tooltip>
+                      ) : amount ? (
+                        formatMoney(amount.cents, amount.currency)
+                      ) : (
+                        ''
+                      )}
                     </Text>
                     <Group gap={2} wrap="nowrap">
                       <Tooltip label="Continue this">

@@ -54,6 +54,8 @@ export interface ReportRow {
   task: Task | null
   client: Client | null
   rateCents: number
+  /** Billable time with no project/task rate: its amount is 0 until a rate is set. */
+  rateMissing: boolean
   /** Billable amount; 0 for non-billable entries. */
   cents: number
   currency: string
@@ -82,7 +84,7 @@ export function buildRows(entries: TimeEntry[], ctx: ReportContext): ReportRow[]
     const client = (project?.client_id && clients.get(project.client_id)) || null
     const date = localDate(entry.start_at)
     const seconds = entrySeconds(entry)
-    const rate = resolveRate(ctx.rates, { taskId: entry.task_id, projectId: entry.project_id, clientId: project?.client_id }, date)
+    const rate = resolveRate(ctx.rates, { taskId: entry.task_id, projectId: entry.project_id }, date)
     return {
       entry,
       date,
@@ -91,6 +93,7 @@ export function buildRows(entries: TimeEntry[], ctx: ReportContext): ReportRow[]
       task,
       client,
       rateCents: rate.cents,
+      rateMissing: entry.billable && rate.source === 'none',
       cents: entry.billable ? amountCents(seconds, rate.cents) : 0,
       currency: client?.currency ?? ctx.currency,
     }

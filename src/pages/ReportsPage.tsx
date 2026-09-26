@@ -68,6 +68,7 @@ import {
 import { formatDuration } from '../lib/time'
 import type { SavedReport, TimeEntry } from '../lib/types'
 import { EntryForm } from '../components/EntryForm'
+import { MissingRatesAlert } from '../components/MissingRatesAlert'
 import { FilterMultiSelect } from '../components/FilterMultiSelect'
 
 interface ReportConfig {
@@ -380,6 +381,8 @@ export function ReportsPage() {
           )}
         </Stack>
       </Paper>
+
+      <MissingRatesAlert rows={rows} context="report" />
 
       <SimpleGrid cols={{ base: 2, md: 4 }}>
         <Stat label="Total time" value={formatDuration(sum.seconds, false)} sub={`${hours(sum.seconds)} h`} />
@@ -737,7 +740,17 @@ function DetailedTable({
                       {formatDuration(r.seconds, false)}
                     </Table.Td>
                     <Table.Td ta="right" className="tabular">
-                      {r.entry.billable ? formatMoney(r.cents, r.currency) : <Text span size="sm" c="dimmed">Non-billable</Text>}
+                      {r.rateMissing ? (
+                        <Badge color="orange" variant="light" size="sm">
+                          No rate
+                        </Badge>
+                      ) : r.entry.billable ? (
+                        formatMoney(r.cents, r.currency)
+                      ) : (
+                        <Text span size="sm" c="dimmed">
+                          Non-billable
+                        </Text>
+                      )}
                     </Table.Td>
                     <Table.Td>
                       {inv ? (
