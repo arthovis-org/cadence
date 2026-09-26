@@ -2,7 +2,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { ActionIcon, Box, Button, Group, Modal, Paper, Text, TextInput, Tooltip, useComputedColorScheme } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconCurrencyDollar, IconExternalLink, IconPlayerPlayFilled, IconPlayerStopFilled, IconPlus } from '@tabler/icons-react'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { ContactShadows, OrbitControls } from '@react-three/drei'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
@@ -42,6 +42,43 @@ const STATUS_HEX: Record<string, string> = {
 interface Draft extends ProjectTaskValue {
   description: string
   billable: boolean
+}
+
+const TARGET: [number, number, number] = [0, 0.95, -0.15]
+const OFFSET: [number, number, number] = [0, 0.8, 1.95]
+
+/** How much farther the camera sits on narrow screens so the whole desk stays in view. */
+function useFit() {
+  const { size } = useThree()
+  return Math.max(1, 1.75 / (size.width / size.height))
+}
+
+/** Places the camera once per screen shape; after that the user orbits freely. */
+function CameraRig() {
+  const { camera } = useThree()
+  const k = useFit()
+  useEffect(() => {
+    camera.position.set(TARGET[0] + OFFSET[0] * k, TARGET[1] + OFFSET[1] * k, TARGET[2] + OFFSET[2] * k)
+    camera.lookAt(...TARGET)
+  }, [camera, k])
+  return null
+}
+
+function Controls() {
+  const k = useFit()
+  return (
+    <OrbitControls
+      target={TARGET}
+      enablePan={false}
+      minDistance={1.1}
+      maxDistance={3.2 * k}
+      minPolarAngle={0.35}
+      maxPolarAngle={1.4}
+      minAzimuthAngle={-0.9}
+      maxAzimuthAngle={0.9}
+      enableDamping
+    />
+  )
 }
 
 const BLANK: Draft = { description: '', projectId: null, taskId: null, billable: true }
@@ -250,17 +287,8 @@ export function DeskPage() {
           <Pinboard items={pins} onOpen={(id) => navigate(`/invoices/${id}`)} onNew={() => navigate('/invoices/new')} />
           <ContactShadows position={[0, 0.001, 0]} opacity={0.35} scale={6} blur={2.5} far={1} />
         </Suspense>
-        <OrbitControls
-          target={[0, 0.95, -0.15]}
-          enablePan={false}
-          minDistance={1.1}
-          maxDistance={3.2}
-          minPolarAngle={0.35}
-          maxPolarAngle={1.4}
-          minAzimuthAngle={-0.9}
-          maxAzimuthAngle={0.9}
-          enableDamping
-        />
+        <CameraRig />
+        <Controls />
       </Canvas>
 
       {/* Hint */}
