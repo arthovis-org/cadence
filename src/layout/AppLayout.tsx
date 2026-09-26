@@ -7,6 +7,7 @@ import {
   Center,
   Group,
   Loader,
+  Paper,
   NavLink,
   ScrollArea,
   Text,
@@ -179,6 +180,12 @@ export function AppLayout() {
             <DeskPage onReady={onDeskReady} shellHost={shellHost} />
           </Suspense>
         </div>
+      )}
+
+      {onCard && (
+        <Paper className="view-hud" shadow="md" withBorder p={4}>
+          <ViewSwitch />
+        </Paper>
       )}
 
       <div ref={pageSlot} />

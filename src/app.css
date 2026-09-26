@@ -46,7 +46,11 @@ body {
 .desk-ui {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.2s ease;
+}
+
+.desk-ui.desk-ui-on {
+  transition-duration: 0.5s;
 }
 
 .desk-ui > * {
@@ -59,4 +63,12 @@ body {
 
 .desk-ui.desk-ui-on > * {
   pointer-events: auto !important;
+}
+
+/* The view switch floats above the 3D views so it's always reachable */
+.view-hud {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 70;
 }

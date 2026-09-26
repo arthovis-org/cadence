@@ -91,6 +91,8 @@ export function AppCard({
             borderRadius: 18,
             overflow: 'hidden',
             backfaceVisibility: 'hidden',
+            // Makes the card the containing block for the app's fixed header/sidebar, so they stay clipped to it.
+            transform: 'translateZ(0)',
             background: 'var(--mantine-color-body)',
           }}
         />

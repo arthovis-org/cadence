@@ -52,8 +52,8 @@ import { EntryForm } from '../components/EntryForm'
 import { ProjectForm } from '../components/ProjectForm'
 import { ProjectTaskSelect, type ProjectTaskValue } from '../components/ProjectTaskSelect'
 import { RateLabel } from '../components/RateLabel'
+import { Worlds } from './Worlds'
 import { AppCard, CARD_H, CARD_POS } from './Card'
-import { ViewSwitch } from '../layout/ViewSwitch'
 import { useView } from '../layout/view'
 import {
   FileOrganizer,
@@ -133,14 +133,15 @@ function CameraRig() {
     }
     const lookAtCard = CARD_POS.clone()
     const currentLook = view === '3d' && phase === 'idle' ? target : lookAtCard
-    const fly = (to: Vector3, lookTo: Vector3, duration: number, from = camera.position.clone(), lookFrom = currentLook) => {
-      anim.current = { from, to, lookFrom, lookTo, start: performance.now(), duration }
+    const fly = (to: Vector3, lookTo: Vector3, duration: number, from = camera.position.clone(), lookFrom = currentLook, delay = 0) => {
+      anim.current = { from, to, lookFrom, lookTo, start: performance.now() + delay, duration }
     }
 
     if (phase === 'lift') {
       camera.position.copy(poses.fill)
       camera.lookAt(lookAtCard)
-      fly(poses.panel, lookAtCard, 1250, poses.fill, lookAtCard)
+      // Hold the screen-filling pose briefly so the browser has painted the app onto the card before moving.
+      fly(poses.panel, lookAtCard, 1150, poses.fill, lookAtCard, 250)
     } else if (phase === 'land') fly(poses.fill, lookAtCard, 950)
     else if (phase === 'away') fly(poses.home, target, 1250, undefined, lookAtCard)
     else if (phase === 'return') fly(poses.panel, lookAtCard, 1100, undefined, target)
@@ -158,7 +159,7 @@ function CameraRig() {
   useFrame(() => {
     const a = anim.current
     if (!a) return
-    const t = Math.min(1, (performance.now() - a.start) / a.duration)
+    const t = Math.min(1, Math.max(0, (performance.now() - a.start) / a.duration))
     const e = ease(t)
     camera.position.lerpVectors(a.from, a.to, e)
     camera.lookAt(new Vector3().lerpVectors(a.lookFrom, a.lookTo, e))
@@ -431,37 +432,43 @@ export function DeskPage({ onReady, shellHost }: { onReady?: () => void; shellHo
   return (
     <Box pos="relative" h="100dvh" style={{ overflow: 'hidden' }}>
       <Canvas shadows camera={{ position: [0, 1.8, 1.85], fov: 42 }} dpr={[1, 2]}>
-        <color attach="background" args={[dark ? '#16171a' : '#e9e3d8']} />
-        <fog attach="fog" args={[dark ? '#16171a' : '#e9e3d8', 5, 11]} />
         <Lighting dark={dark} />
         <Suspense fallback={null}>
-          <Room dark={dark} />
-          <Plant />
-          <Lamp dark={dark} />
-          <WeekCalendar data={week} onClick={() => goTo('/reports')} />
-          <TodayNotepad
-            lines={lines}
-            total={formatDuration(todaySeconds, false)}
-            running={running ? { elapsed: formatDuration(elapsed), label: clip(describe(running).text, 40) } : null}
-            onClick={() => setAdding(true)}
+          <Worlds
+            dark={dark}
+            roomShown={view === '3d' || phase === 'away'}
+            room={
+              <>
+                <Room dark={dark} />
+                <Plant />
+                <Lamp dark={dark} />
+                <WeekCalendar data={week} onClick={() => goTo('/reports')} />
+                <TodayNotepad
+                  lines={lines}
+                  total={formatDuration(todaySeconds, false)}
+                  running={running ? { elapsed: formatDuration(elapsed), label: clip(describe(running).text, 40) } : null}
+                  onClick={() => setAdding(true)}
+                />
+                <Stopwatch running={!!running} seconds={elapsed} label={clip(selectionLabel, 34)} onToggle={toggleTimer} />
+                <FileOrganizer
+                  items={folders}
+                  selectedId={draft.projectId}
+                  onSelect={(id) => choose(id === draft.projectId && !draft.taskId ? { projectId: null, taskId: null } : { projectId: id, taskId: null })}
+                  onCreate={() => setCreatingProject(true)}
+                />
+                <StickyNotes
+                  items={notes}
+                  selectedId={draft.taskId}
+                  projectName={selectedProject?.name ?? null}
+                  onSelect={(id) => choose({ projectId: draft.projectId, taskId: id === draft.taskId ? null : id })}
+                  onAdd={() => setNewTask('')}
+                />
+                <WallClock dark={dark} />
+                <Pinboard items={pins} onOpen={(id) => goTo(`/invoices/${id}`)} onNew={() => goTo('/invoices/new')} />
+                <ContactShadows position={[0, DESK_SHADOW_Y, 0]} opacity={0.3} scale={3.2} blur={2.2} far={0.6} resolution={512} />
+              </>
+            }
           />
-          <Stopwatch running={!!running} seconds={elapsed} label={clip(selectionLabel, 34)} onToggle={toggleTimer} />
-          <FileOrganizer
-            items={folders}
-            selectedId={draft.projectId}
-            onSelect={(id) => choose(id === draft.projectId && !draft.taskId ? { projectId: null, taskId: null } : { projectId: id, taskId: null })}
-            onCreate={() => setCreatingProject(true)}
-          />
-          <StickyNotes
-            items={notes}
-            selectedId={draft.taskId}
-            projectName={selectedProject?.name ?? null}
-            onSelect={(id) => choose({ projectId: draft.projectId, taskId: id === draft.taskId ? null : id })}
-            onAdd={() => setNewTask('')}
-          />
-          <WallClock dark={dark} />
-          <Pinboard items={pins} onOpen={(id) => goTo(`/invoices/${id}`)} onNew={() => goTo('/invoices/new')} />
-          <ContactShadows position={[0, DESK_SHADOW_Y, 0]} opacity={0.3} scale={3.2} blur={2.2} far={0.6} resolution={512} />
           <Ready onReady={onReady} />
         </Suspense>
         {onCard && <AppCard shellHost={shellHost} gone={(view === '3d' && phase === 'idle') || phase === 'away'} dark={dark} />}
@@ -479,7 +486,6 @@ export function DeskPage({ onReady, shellHost }: { onReady?: () => void; shellHo
             <IconClockHour4 size={20} color="var(--mantine-color-indigo-6)" />
             <Text fw={700}>Cadence</Text>
           </Group>
-          <ViewSwitch />
           <Tooltip label="Toggle dark mode">
             <ActionIcon variant="default" onClick={() => setColorScheme(dark ? 'light' : 'dark')} aria-label="Toggle dark mode">
               {dark ? <IconSun size={16} /> : <IconMoon size={16} />}
@@ -498,7 +504,7 @@ export function DeskPage({ onReady, shellHost }: { onReady?: () => void; shellHo
 
       {/* Selected project */}
       {selectedProject && (
-        <Paper pos="absolute" top={12} right={12} p="sm" withBorder shadow="sm" w={260}>
+        <Paper pos="absolute" top={64} right={12} p="sm" withBorder shadow="sm" w={260}>
           <Group gap={8} wrap="nowrap" mb={4}>
             <Box w={10} h={10} style={{ borderRadius: 3, background: selectedProject.color, flexShrink: 0 }} />
             <Text fw={600} size="sm" truncate>
