@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActionIcon,
   AppShell,
@@ -50,7 +50,8 @@ const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)'
 function initialView(pathname: string): View {
   if (pathname.startsWith('/3d')) return '3d'
   try {
-    return localStorage.getItem(VIEW_KEY) === '3d' ? '3d' : '2d'
+    const stored = localStorage.getItem(VIEW_KEY)
+    return stored === '3d' || stored === 'panel' ? stored : '2d'
   } catch {
     return '2d'
   }
@@ -64,12 +65,33 @@ function remember(view: View) {
   }
 }
 
+/** While the 2D app floats in 3D space, it tilts gently toward the pointer. */
+function usePanelTilt(active: boolean, el: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const node = el.current
+    if (!active || !node || reducedMotion()) return
+    const move = (e: PointerEvent) => {
+      const x = e.clientX / window.innerWidth - 0.5
+      const y = e.clientY / window.innerHeight - 0.5
+      node.style.setProperty('--vt-ry', `${(x * 6).toFixed(2)}deg`)
+      node.style.setProperty('--vt-rx', `${(-y * 4).toFixed(2)}deg`)
+    }
+    window.addEventListener('pointermove', move)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      node.style.removeProperty('--vt-ry')
+      node.style.removeProperty('--vt-rx')
+    }
+  }, [active, el])
+}
+
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const [view, setView] = useState<View>(() => initialView(location.pathname))
   const [phase, setPhase] = useState<Phase>('idle')
-  const [deskMounted, setDeskMounted] = useState(view === '3d')
+  const [deskMounted, setDeskMounted] = useState(view !== '2d')
+  const shellRef = useRef<HTMLDivElement>(null)
   const busy = useRef(false)
   const deskReady = useRef(false)
   const resolveReady = useRef<(() => void) | null>(null)
@@ -88,50 +110,60 @@ export function AppLayout() {
           setTimeout(resolve, 3500) // don't hang if the first frame is slow
         })
 
+  // Each step animates between two neighbouring views: 2d <-> panel <-> 3d.
+  const steps = {
+    async toPanelFrom2d() {
+      loadDesk()
+      window.scrollTo(0, 0)
+      setDeskMounted(true)
+      setPhase('lift')
+      await sleep(700)
+      setView('panel')
+      setPhase('idle')
+    },
+    async to2dFromPanel() {
+      setPhase('land')
+      await sleep(520)
+      setView('2d')
+      setPhase('idle')
+      setDeskMounted(false)
+      deskReady.current = false
+    },
+    async to3dFromPanel() {
+      await waitForDesk()
+      setPhase('away')
+      await sleep(1250)
+      setView('3d')
+      setPhase('idle')
+    },
+    async toPanelFrom3d() {
+      setPhase('leave')
+      await sleep(60)
+      setPhase('return')
+      await sleep(1000)
+      setView('panel')
+      setPhase('idle')
+    },
+  }
+
   const switchTo = useCallback(
     async (next: View, path?: string) => {
       if (busy.current) return
-      if (next === view) {
-        if (path) navigate(path)
-        return
-      }
+      if (path) navigate(path)
+      if (next === view) return
       busy.current = true
       remember(next)
       try {
-        if (next === '3d') {
-          loadDesk()
-          deskReady.current = false
-          if (reducedMotion()) {
-            setDeskMounted(true)
-            setView('3d')
-            return
-          }
-          window.scrollTo(0, 0)
-          setDeskMounted(true)
-          setPhase('lift') // 2D becomes a floating panel; the desk loads behind it
-          await Promise.all([sleep(650), waitForDesk()])
-          setPhase('away') // the panel flies off, the desk fades in
-          await sleep(1150)
-          setView('3d')
-          setPhase('idle')
-        } else {
-          if (path) navigate(path)
-          if (reducedMotion()) {
-            setView('2d')
-            setDeskMounted(false)
-            return
-          }
-          window.scrollTo(0, 0)
-          setPhase('leave') // the desk fades out; the 2D panel waits far away
-          await sleep(280)
-          setPhase('return') // the panel flies back in
-          await sleep(900)
-          setPhase('land') // and grows back to full screen
-          await sleep(480)
-          setView('2d')
-          setPhase('idle')
-          setDeskMounted(false)
+        if (reducedMotion()) {
+          setDeskMounted(next !== '2d')
+          setView(next)
+          return
         }
+        if (view === '2d') await steps.toPanelFrom2d()
+        if (view === '3d') await steps.toPanelFrom3d()
+        // Now floating in 3D space; continue to the target if it's further along.
+        if (next === '3d') await steps.to3dFromPanel()
+        if (next === '2d') await steps.to2dFromPanel()
       } finally {
         busy.current = false
       }
@@ -142,20 +174,35 @@ export function AppLayout() {
 
   const ctx = useMemo(() => ({ view, phase, switchTo }), [view, phase, switchTo])
 
-  const animating = phase !== 'idle'
-  const deskVisible = (view === '3d' && phase === 'idle') || phase === 'away'
-  const shellClass = animating ? `vt-shell vt-active vt-${phase}` : view === '3d' ? 'vt-shell vt-hidden' : 'vt-shell'
+  const resting = phase === 'idle'
+  usePanelTilt(resting && view === 'panel', shellRef)
+
+  // The 2D app: normal page (2d), a floating panel (panel, and while animating), or hidden (3d).
+  const floating = !resting || view === 'panel'
+  const shellClass = !resting
+    ? `vt-shell vt-active vt-${phase}`
+    : view === 'panel'
+      ? 'vt-shell vt-active vt-panel'
+      : view === '3d'
+        ? 'vt-shell vt-hidden'
+        : 'vt-shell'
+
+  // The room behind: visible in panel and 3d views, fading in/out with lift/land.
+  const deskVisible = phase === 'lift' || (phase !== 'land' && view !== '2d')
+  const deskClass = ['vt-desk', deskVisible && 'vt-on', view === '3d' && resting && 'vt-interactive', floating && phase !== 'away' && 'vt-dim']
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <ViewContext.Provider value={ctx}>
-      {animating && <div className="vt-backdrop" />}
+      {floating && <div className="vt-backdrop" />}
 
       {deskMounted && (
-        <div className={`vt-desk${deskVisible ? ' vt-on' : ''}${phase === 'away' ? ' vt-slow' : ''}`} aria-hidden={!deskVisible}>
+        <div className={deskClass} aria-hidden={!(view === '3d' && resting)}>
           <Suspense
             fallback={
               <Center h="100%">
-                <Loader />
+                <Loader color="gray" />
               </Center>
             }
           >
@@ -164,9 +211,11 @@ export function AppLayout() {
         </div>
       )}
 
-      <div className={animating ? 'vt-stage' : undefined}>
-        <div className={shellClass}>
-          <Shell />
+      <div className={floating ? 'vt-stage' : undefined}>
+        <div ref={shellRef} className={shellClass}>
+          <div className={floating ? 'vt-scroller' : undefined}>
+            <Shell />
+          </div>
         </div>
       </div>
     </ViewContext.Provider>

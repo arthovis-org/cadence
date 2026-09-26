@@ -53,7 +53,7 @@ import { ProjectForm } from '../components/ProjectForm'
 import { ProjectTaskSelect, type ProjectTaskValue } from '../components/ProjectTaskSelect'
 import { RateLabel } from '../components/RateLabel'
 import { ViewSwitch } from '../layout/ViewSwitch'
-import { useView, type Phase } from '../layout/view'
+import { useView } from '../layout/view'
 import {
   FileOrganizer,
   Lamp,
@@ -108,28 +108,29 @@ function useFit() {
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 
 /**
- * Places the camera for the screen shape, and flies it in (entering 3D) or out (leaving) during view transitions.
- * Outside transitions the user orbits freely.
+ * Places the camera for the screen shape. "far" is the view behind the floating 2D panel; "home" is at the desk.
+ * Switching between them flies the camera; otherwise the user orbits freely.
  */
-function CameraRig({ phase }: { phase: Phase }) {
+function CameraRig({ mode }: { mode: 'home' | 'far' }) {
   const { camera } = useThree()
   const k = useFit()
   const anim = useRef<{ from: Vector3; to: Vector3; start: number; duration: number } | null>(null)
+  const placed = useRef(false)
 
   useEffect(() => {
     const target = new Vector3(...TARGET)
     const home = new Vector3(...OFFSET).multiplyScalar(k).add(target)
-    // Far away, higher up and a little to the side: where the camera starts its fly-in.
-    const far = new Vector3(...OFFSET).multiplyScalar(k * 2.6).add(target).add(new Vector3(0.9, 1.1, 0))
-    const fly = (to: Vector3, duration: number) => {
-      anim.current = { from: camera.position.clone(), to, start: performance.now(), duration }
+    // Farther back, higher up and a little to the side: the room seen behind the 2D panel.
+    const far = new Vector3(...OFFSET).multiplyScalar(k * 2.1).add(target).add(new Vector3(0.7, 0.7, 0))
+    const to = mode === 'home' ? home : far
+    if (!placed.current) {
+      camera.position.copy(to)
+      placed.current = true
+    } else {
+      anim.current = { from: camera.position.clone(), to, start: performance.now(), duration: mode === 'home' ? 1400 : 1000 }
     }
-    if (phase === 'lift') camera.position.copy(far)
-    else if (phase === 'away') fly(home, 1400)
-    else if (phase === 'leave') fly(far, 700)
-    else if (phase === 'idle' && !anim.current) camera.position.copy(home)
     camera.lookAt(target)
-  }, [camera, k, phase])
+  }, [camera, k, mode])
 
   useFrame(() => {
     const a = anim.current
@@ -203,7 +204,9 @@ function Lighting({ dark }: { dark: boolean }) {
 
 export function DeskPage({ onReady }: { onReady?: () => void }) {
   const workspace = useWorkspace().data!
-  const { phase, switchTo } = useView()
+  const { view, phase, switchTo } = useView()
+  // The desk is only 'live' in the 3D view; behind the 2D panel it's scenery.
+  const atDesk = view === '3d' && phase === 'idle'
   const goTo = (path: string) => switchTo('2d', path)
   const { setColorScheme } = useMantineColorScheme()
   const dark = useComputedColorScheme('light') === 'dark'
@@ -426,9 +429,11 @@ export function DeskPage({ onReady }: { onReady?: () => void }) {
           <ContactShadows position={[0, DESK_SHADOW_Y, 0]} opacity={0.3} scale={3.2} blur={2.2} far={0.6} resolution={512} />
           <Ready onReady={onReady} />
         </Suspense>
-        <CameraRig phase={phase} />
-        <Controls enabled={phase === 'idle'} />
+        <CameraRig mode={atDesk || phase === 'away' ? 'home' : 'far'} />
+        <Controls enabled={atDesk} />
       </Canvas>
+
+      <Box className={atDesk ? 'desk-ui desk-ui-on' : 'desk-ui'}>
 
       {/* Toolbar */}
       <Paper pos="absolute" top={12} left={12} px="sm" py={6} withBorder shadow="sm">
@@ -537,6 +542,8 @@ export function DeskPage({ onReady }: { onReady?: () => void }) {
           </Tooltip>
         </Group>
       </Paper>
+
+      </Box>
 
       <Modal opened={adding} onClose={() => setAdding(false)} title="Add time" size="lg">
         {adding && <EntryForm entry={null} onDone={() => setAdding(false)} />}
