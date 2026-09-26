@@ -1,7 +1,7 @@
 # Cadence
 
-A personal time tracker: clients, projects and tasks, a timer, cascading hourly rates with history, and (coming
-next) detailed reports and invoices/receipts.
+A personal time tracker: clients, projects and tasks, a timer, cascading hourly rates with history, detailed
+reports, and invoices with payment receipts (PDF).
 
 - **Frontend:** Vite + React + TypeScript, Mantine UI, TanStack Query, hosted as a static site on GitHub Pages.
 - **Backend:** Supabase (Postgres + Auth). All data access is protected by row-level security.
@@ -23,7 +23,10 @@ Supabase settings live in `.env` (the URL and anon key are public by design; nev
 ## Database
 
 The schema is in `supabase/migrations/`. To set up a fresh Supabase project, paste each migration file into the
-Supabase **SQL Editor** and run it, in order.
+Supabase **SQL Editor** and run it, in order:
+
+1. `20260926000000_init.sql` – tables and security rules
+2. `20260927000000_invoicing.sql` – invoice/receipt numbering, totals, payment status
 
 ## Deploy
 

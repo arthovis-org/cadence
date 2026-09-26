@@ -11,6 +11,9 @@ export interface Workspace {
   business_name: string | null
   business_email: string | null
   business_address: string | null
+  receipt_prefix: string
+  next_receipt_number: number
+  payment_terms_days: number
   created_at: string
 }
 
@@ -72,6 +75,62 @@ export interface TimeEntry {
   billable: boolean
   invoice_id: string | null
   tags: string[]
+  created_at: string
+}
+
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void'
+
+export interface InvoiceSnapshot {
+  business?: { name: string | null; email: string | null; address: string | null }
+  client?: { name: string; email: string | null; address: string | null }
+}
+
+export interface Invoice {
+  id: string
+  workspace_id: string
+  client_id: string
+  number: string
+  status: InvoiceStatus
+  issue_date: string
+  due_date: string | null
+  currency: string
+  subtotal_cents: number
+  tax_percent: number
+  tax_cents: number
+  total_cents: number
+  notes: string | null
+  snapshot: InvoiceSnapshot
+  created_at: string
+}
+
+export interface InvoiceLine {
+  id: string
+  workspace_id: string
+  invoice_id: string
+  position: number
+  description: string
+  quantity: number
+  rate_cents: number
+  amount_cents: number
+}
+
+export interface Payment {
+  id: string
+  workspace_id: string
+  invoice_id: string
+  amount_cents: number
+  paid_at: string
+  method: string | null
+  receipt_number: string | null
+  notes: string | null
+  created_at: string
+}
+
+export interface SavedReport {
+  id: string
+  workspace_id: string
+  name: string
+  config: Record<string, unknown>
   created_at: string
 }
 

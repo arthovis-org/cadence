@@ -4,8 +4,7 @@ import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { IconDownload } from '@tabler/icons-react'
 import dayjs from 'dayjs'
-import { useUpdateWorkspace, useWorkspace } from '../data/hooks'
-import { supabase } from '../lib/supabase'
+import { fetchAllRows, useUpdateWorkspace, useWorkspace } from '../data/hooks'
 import { CURRENCIES } from '../lib/money'
 import type { TableName, Workspace } from '../lib/types'
 import { RateEditor } from '../components/RateEditor'
@@ -24,22 +23,6 @@ const BACKUP_TABLES: TableName[] = [
   'saved_reports',
 ]
 
-async function fetchAll(table: TableName, workspaceId: string) {
-  const pageSize = 1000
-  const rows: unknown[] = []
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .eq('workspace_id', workspaceId)
-      .order('id')
-      .range(from, from + pageSize - 1)
-    if (error) throw new Error(`${table}: ${error.message}`)
-    rows.push(...data)
-    if (data.length < pageSize) return rows
-  }
-}
-
 export function SettingsPage() {
   const workspace = useWorkspace().data!
   const update = useUpdateWorkspace()
@@ -52,6 +35,8 @@ export function SettingsPage() {
       week_start: String(workspace.week_start),
       default_tax_percent: workspace.default_tax_percent as number | string,
       invoice_prefix: workspace.invoice_prefix,
+      receipt_prefix: workspace.receipt_prefix ?? 'RCPT-',
+      payment_terms_days: (workspace.payment_terms_days ?? 14) as number | string,
       business_name: workspace.business_name ?? '',
       business_email: workspace.business_email ?? '',
       business_address: workspace.business_address ?? '',
@@ -66,6 +51,8 @@ export function SettingsPage() {
       week_start: Number(v.week_start),
       default_tax_percent: Number(v.default_tax_percent) || 0,
       invoice_prefix: v.invoice_prefix,
+      receipt_prefix: v.receipt_prefix,
+      payment_terms_days: Number(v.payment_terms_days) || 0,
       business_name: v.business_name || null,
       business_email: v.business_email || null,
       business_address: v.business_address || null,
@@ -87,7 +74,7 @@ export function SettingsPage() {
         exported_at: new Date().toISOString(),
         workspace,
       }
-      for (const table of BACKUP_TABLES) backup[table] = await fetchAll(table, workspace.id)
+      for (const table of BACKUP_TABLES) backup[table] = await fetchAllRows(table, workspace.id)
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -135,7 +122,19 @@ export function SettingsPage() {
                 </Title>
                 <Group grow>
                   <NumberInput label="Default tax / VAT %" min={0} max={100} decimalScale={2} {...form.getInputProps('default_tax_percent')} />
-                  <TextInput label="Invoice number prefix" {...form.getInputProps('invoice_prefix')} />
+                  <NumberInput label="Payment terms (days)" description="Default due date" min={0} {...form.getInputProps('payment_terms_days')} />
+                </Group>
+                <Group grow>
+                  <TextInput
+                    label="Invoice number prefix"
+                    description={`Next: ${workspace.invoice_prefix}${String(workspace.next_invoice_number).padStart(4, '0')}`}
+                    {...form.getInputProps('invoice_prefix')}
+                  />
+                  <TextInput
+                    label="Receipt number prefix"
+                    description={`Next: ${workspace.receipt_prefix ?? 'RCPT-'}${String(workspace.next_receipt_number ?? 1).padStart(4, '0')}`}
+                    {...form.getInputProps('receipt_prefix')}
+                  />
                 </Group>
                 <TextInput label="Your business name" {...form.getInputProps('business_name')} />
                 <TextInput label="Your business email" type="email" {...form.getInputProps('business_email')} />

@@ -24,27 +24,27 @@ export function ProjectTaskSelect({ value, onChange, ...rest }: Props) {
   const tasksData = useTasks().data
   const clientsData = useClients().data
 
-  const { data, taskProject, color } = useMemo(() => {
-    const projects = projectsData ?? []
+  const { data, taskProject, color, taskName } = useMemo(() => {
+    const projects = (projectsData ?? []).filter((p) => !p.archived || p.id === value.projectId)
     const tasks = tasksData ?? []
     const clients = clientsData ?? []
     const taskProject = new Map(tasks.map((t) => [t.id, t.project_id]))
+    const taskName = new Map(tasks.map((t) => [t.id, t.name]))
     const color = new Map(projects.map((p) => [p.id, p.color]))
-    const data = projects
-      .filter((p) => !p.archived || p.id === value.projectId)
-      .map((p) => {
-        const client = clients.find((c) => c.id === p.client_id)
-        return {
-          group: client ? `${p.name} · ${client.name}` : p.name,
-          items: [
-            { value: `p:${p.id}`, label: p.name },
-            ...tasks
-              .filter((t) => t.project_id === p.id && (!t.done || t.id === value.taskId))
-              .map((t) => ({ value: `t:${t.id}`, label: `${p.name} › ${t.name}` })),
-          ],
-        }
-      })
-    return { data, taskProject, color }
+
+    // Group projects by client; each project is followed by its (open) tasks.
+    const groups = [...clients, null].map((client) => {
+      const items = projects
+        .filter((p) => p.client_id === (client?.id ?? null))
+        .flatMap((p) => [
+          { value: `p:${p.id}`, label: p.name },
+          ...tasks
+            .filter((t) => t.project_id === p.id && (!t.done || t.id === value.taskId))
+            .map((t) => ({ value: `t:${t.id}`, label: `${p.name} › ${t.name}` })),
+        ])
+      return { group: client?.name ?? 'No client', items }
+    })
+    return { data: groups.filter((g) => g.items.length > 0), taskProject, color, taskName }
   }, [projectsData, tasksData, clientsData, value.projectId, value.taskId])
 
   return (
@@ -54,6 +54,7 @@ export function ProjectTaskSelect({ value, onChange, ...rest }: Props) {
       clearable
       data={data}
       value={encode(value)}
+      maxDropdownHeight={360}
       onChange={(v) => {
         if (!v) return onChange({ projectId: null, taskId: null })
         const id = v.slice(2)
@@ -61,12 +62,20 @@ export function ProjectTaskSelect({ value, onChange, ...rest }: Props) {
         else onChange({ projectId: id, taskId: null })
       }}
       renderOption={({ option }) => {
-        const isTask = option.value.startsWith('t:')
-        const pid = isTask ? taskProject.get(option.value.slice(2)) : option.value.slice(2)
+        const id = option.value.slice(2)
+        if (option.value.startsWith('t:')) {
+          return (
+            <Text size="xs" c="dimmed" pl={22}>
+              {taskName.get(id)}
+            </Text>
+          )
+        }
         return (
-          <Group gap="xs" wrap="nowrap" pl={isTask ? 'md' : 0}>
-            {!isTask && <ColorSwatch color={color.get(pid ?? '') ?? '#999'} size={10} />}
-            <Text size="sm">{isTask ? option.label.split(' › ').slice(1).join(' › ') : option.label}</Text>
+          <Group gap={8} wrap="nowrap">
+            <ColorSwatch color={color.get(id) ?? '#999'} size={10} withShadow={false} />
+            <Text size="sm" fw={500}>
+              {option.label}
+            </Text>
           </Group>
         )
       }}

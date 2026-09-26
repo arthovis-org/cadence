@@ -1,7 +1,9 @@
+import { Suspense } from 'react'
 import {
   ActionIcon,
   AppShell,
-  Badge,
+  Center,
+  Loader,
   Burger,
   Group,
   NavLink,
@@ -30,12 +32,9 @@ const NAV = [
   { to: '/', label: 'Time tracker', icon: IconClockHour4 },
   { to: '/projects', label: 'Projects', icon: IconBriefcase },
   { to: '/clients', label: 'Clients', icon: IconUsers },
+  { to: '/reports', label: 'Reports', icon: IconChartBar },
+  { to: '/invoices', label: 'Invoices', icon: IconFileInvoice },
   { to: '/settings', label: 'Settings', icon: IconSettings },
-]
-
-const SOON = [
-  { label: 'Reports', icon: IconChartBar },
-  { label: 'Invoices', icon: IconFileInvoice },
 ]
 
 export function AppLayout() {
@@ -92,24 +91,19 @@ export function AppLayout() {
               onClick={close}
             />
           ))}
-          {SOON.map((item) => (
-            <NavLink
-              key={item.label}
-              label={item.label}
-              leftSection={<item.icon size={18} />}
-              rightSection={
-                <Badge size="xs" variant="light">
-                  Soon
-                </Badge>
-              }
-              disabled
-            />
-          ))}
         </AppShell.Section>
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Outlet />
+        <Suspense
+          fallback={
+            <Center py="xl">
+              <Loader />
+            </Center>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </AppShell.Main>
     </AppShell>
   )

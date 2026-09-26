@@ -19,7 +19,8 @@ import {
 import { useForm } from '@mantine/form'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
-import { IconArchive, IconDots, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconArchive, IconDots, IconFileInvoice, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
+import { useNavigate } from 'react-router-dom'
 import { useClients, useProjects, useRates, useRemove, useSave, useWorkspace } from '../data/hooks'
 import { CURRENCIES, formatMoney } from '../lib/money'
 import { resolveRate, SOURCE_LABEL } from '../lib/rates'
@@ -34,6 +35,7 @@ export function ClientsPage() {
   const save = useSave<Client>('clients')
   const remove = useRemove('clients')
   const [showArchived, setShowArchived] = useState(false)
+  const navigate = useNavigate()
   const [editing, setEditing] = useState<Client | 'new' | null>(null)
 
   const list = (clients.data ?? []).filter((c) => showArchived || !c.archived)
@@ -107,6 +109,9 @@ export function ClientsPage() {
                         <Menu.Dropdown>
                           <Menu.Item leftSection={<IconPencil size={14} />} onClick={() => setEditing(c)}>
                             Edit
+                          </Menu.Item>
+                          <Menu.Item leftSection={<IconFileInvoice size={14} />} onClick={() => navigate(`/invoices/new?client=${c.id}`)}>
+                            New invoice
                           </Menu.Item>
                           <Menu.Item
                             leftSection={<IconArchive size={14} />}
