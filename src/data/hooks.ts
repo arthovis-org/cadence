@@ -233,3 +233,21 @@ export function useInvalidateBilling() {
       qc.invalidateQueries({ queryKey: ['workspace'] }),
     ])
 }
+
+/** Stop or edit the running timer. Shared by the 2D timer bar and the 3D desk. */
+export function useTimerActions() {
+  const qc = useQueryClient()
+  const start = useStartTimer()
+  const refresh = () => qc.invalidateQueries({ queryKey: ['time_entries'] })
+  return {
+    start,
+    async stop(id: string, patch: Partial<TimeEntry> = {}) {
+      check(await supabase.from('time_entries').update({ ...patch, end_at: new Date().toISOString() }).eq('id', id))
+      await refresh()
+    },
+    async patch(id: string, patch: Partial<TimeEntry>) {
+      check(await supabase.from('time_entries').update(patch).eq('id', id))
+      await refresh()
+    },
+  }
+}
