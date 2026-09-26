@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { Vector3 } from 'three'
+import { Vector3, type PerspectiveCamera } from 'three'
 import {
   ActionIcon,
   Box,
@@ -52,6 +52,7 @@ import { EntryForm } from '../components/EntryForm'
 import { ProjectForm } from '../components/ProjectForm'
 import { ProjectTaskSelect, type ProjectTaskValue } from '../components/ProjectTaskSelect'
 import { RateLabel } from '../components/RateLabel'
+import { AppCard, CARD_H, CARD_POS } from './Card'
 import { ViewSwitch } from '../layout/ViewSwitch'
 import { useView } from '../layout/view'
 import {
@@ -108,42 +109,65 @@ function useFit() {
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 
 /**
- * Places the camera for the screen shape. "far" is the view behind the floating 2D panel; "home" is at the desk.
- * Switching between them flies the camera; otherwise the user orbits freely.
+ * Camera poses:
+ * - fill:  so close to the app card that it covers the screen exactly (looks like the regular 2D app)
+ * - panel: stepped back and a little to the side, the card floating in the room
+ * - home:  at the desk
+ * View changes fly the camera between poses; otherwise the user orbits freely.
  */
-function CameraRig({ mode }: { mode: 'home' | 'far' }) {
-  const { camera } = useThree()
+function CameraRig() {
+  const { camera, size } = useThree()
+  const { view, phase } = useView()
   const k = useFit()
-  const anim = useRef<{ from: Vector3; to: Vector3; start: number; duration: number } | null>(null)
   const placed = useRef(false)
+  const anim = useRef<{ from: Vector3; to: Vector3; lookFrom: Vector3; lookTo: Vector3; start: number; duration: number } | null>(null)
+  const fov = (camera as PerspectiveCamera).fov
 
   useEffect(() => {
+    const fillDistance = CARD_H / 2 / Math.tan(((fov / 2) * Math.PI) / 180)
     const target = new Vector3(...TARGET)
-    const home = new Vector3(...OFFSET).multiplyScalar(k).add(target)
-    // Farther back, higher up and a little to the side: the room seen behind the 2D panel.
-    const far = new Vector3(...OFFSET).multiplyScalar(k * 2.1).add(target).add(new Vector3(0.7, 0.7, 0))
-    const to = mode === 'home' ? home : far
-    if (!placed.current) {
-      camera.position.copy(to)
-      placed.current = true
-    } else {
-      anim.current = { from: camera.position.clone(), to, start: performance.now(), duration: mode === 'home' ? 1400 : 1000 }
+    const poses = {
+      fill: CARD_POS.clone().add(new Vector3(0, 0, fillDistance)),
+      panel: CARD_POS.clone().add(new Vector3(0.24, 0.14, 1).normalize().multiplyScalar(fillDistance / 0.7)),
+      home: new Vector3(...OFFSET).multiplyScalar(k).add(target),
     }
-    camera.lookAt(target)
-  }, [camera, k, mode])
+    const lookAtCard = CARD_POS.clone()
+    const currentLook = view === '3d' && phase === 'idle' ? target : lookAtCard
+    const fly = (to: Vector3, lookTo: Vector3, duration: number, from = camera.position.clone(), lookFrom = currentLook) => {
+      anim.current = { from, to, lookFrom, lookTo, start: performance.now(), duration }
+    }
+
+    if (phase === 'lift') {
+      camera.position.copy(poses.fill)
+      camera.lookAt(lookAtCard)
+      fly(poses.panel, lookAtCard, 1250, poses.fill, lookAtCard)
+    } else if (phase === 'land') fly(poses.fill, lookAtCard, 950)
+    else if (phase === 'away') fly(poses.home, target, 1250, undefined, lookAtCard)
+    else if (phase === 'return') fly(poses.panel, lookAtCard, 1100, undefined, target)
+    else if (!placed.current || !anim.current) {
+      // Resting: place the camera (first render or after a resize).
+      if (!placed.current) {
+        camera.position.copy(view === '3d' ? poses.home : poses.panel)
+        camera.lookAt(view === '3d' ? target : lookAtCard)
+      }
+    }
+    placed.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, k, size.width, size.height])
 
   useFrame(() => {
     const a = anim.current
     if (!a) return
     const t = Math.min(1, (performance.now() - a.start) / a.duration)
-    camera.position.lerpVectors(a.from, a.to, ease(t))
-    camera.lookAt(...TARGET)
+    const e = ease(t)
+    camera.position.lerpVectors(a.from, a.to, e)
+    camera.lookAt(new Vector3().lerpVectors(a.lookFrom, a.lookTo, e))
     if (t >= 1) anim.current = null
   })
   return null
 }
 
-/** Tells the layout the desk has drawn its first frames, so the transition can reveal it. */
+/** Tells the layout the desk has drawn its first frames, so the transition can start. */
 function Ready({ onReady }: { onReady?: () => void }) {
   const frames = useRef(0)
   useFrame(() => {
@@ -153,22 +177,32 @@ function Ready({ onReady }: { onReady?: () => void }) {
   return null
 }
 
-function Controls({ enabled }: { enabled: boolean }) {
+/** Orbit around the card (2D in 3D) or the desk (3D). */
+function Controls() {
+  const { view, phase } = useView()
   const k = useFit()
+  const atCard = view === 'panel'
   return (
     <OrbitControls
-      enabled={enabled}
-      target={TARGET}
+      enabled={phase === 'idle' && view !== '2d'}
+      target={atCard ? CARD_POS.toArray() : TARGET}
       enablePan={false}
-      minDistance={1.1}
-      maxDistance={3.4 * k}
+      minDistance={atCard ? 0.75 : 1.1}
+      maxDistance={atCard ? 2.6 : 3.4 * k}
       minPolarAngle={0.4}
-      maxPolarAngle={1.42}
-      minAzimuthAngle={-0.85}
-      maxAzimuthAngle={0.85}
+      maxPolarAngle={1.5}
+      minAzimuthAngle={atCard ? -1.1 : -0.85}
+      maxAzimuthAngle={atCard ? 1.1 : 0.85}
       enableDamping
     />
   )
+}
+
+/** Desk objects only react to clicks and hovers when you're at the desk. */
+function SceneEvents({ enabled }: { enabled: boolean }) {
+  const setEvents = useThree((s) => s.setEvents)
+  useEffect(() => setEvents({ enabled }), [enabled, setEvents])
+  return null
 }
 
 /** Studio-style reflections built from simple light panels (no downloaded HDR). */
@@ -202,11 +236,12 @@ function Lighting({ dark }: { dark: boolean }) {
 // Page
 // ---------------------------------------------------------------------------
 
-export function DeskPage({ onReady }: { onReady?: () => void }) {
+export function DeskPage({ onReady, shellHost }: { onReady?: () => void; shellHost: HTMLElement }) {
   const workspace = useWorkspace().data!
   const { view, phase, switchTo } = useView()
   // The desk is only 'live' in the 3D view; behind the 2D panel it's scenery.
   const atDesk = view === '3d' && phase === 'idle'
+  const onCard = view !== '2d' || phase === 'lift' || phase === 'land'
   const goTo = (path: string) => switchTo('2d', path)
   const { setColorScheme } = useMantineColorScheme()
   const dark = useComputedColorScheme('light') === 'dark'
@@ -429,8 +464,10 @@ export function DeskPage({ onReady }: { onReady?: () => void }) {
           <ContactShadows position={[0, DESK_SHADOW_Y, 0]} opacity={0.3} scale={3.2} blur={2.2} far={0.6} resolution={512} />
           <Ready onReady={onReady} />
         </Suspense>
-        <CameraRig mode={atDesk || phase === 'away' ? 'home' : 'far'} />
-        <Controls enabled={atDesk} />
+        {onCard && <AppCard shellHost={shellHost} gone={(view === '3d' && phase === 'idle') || phase === 'away'} dark={dark} />}
+        <CameraRig />
+        <Controls />
+        <SceneEvents enabled={atDesk} />
       </Canvas>
 
       <Box className={atDesk ? 'desk-ui desk-ui-on' : 'desk-ui'}>

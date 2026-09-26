@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ActionIcon,
   AppShell,
@@ -65,36 +66,28 @@ function remember(view: View) {
   }
 }
 
-/** While the 2D app floats in 3D space, it tilts gently toward the pointer. */
-function usePanelTilt(active: boolean, el: React.RefObject<HTMLDivElement | null>) {
-  useEffect(() => {
-    const node = el.current
-    if (!active || !node || reducedMotion()) return
-    const move = (e: PointerEvent) => {
-      const x = e.clientX / window.innerWidth - 0.5
-      const y = e.clientY / window.innerHeight - 0.5
-      node.style.setProperty('--vt-ry', `${(x * 6).toFixed(2)}deg`)
-      node.style.setProperty('--vt-rx', `${(-y * 4).toFixed(2)}deg`)
-    }
-    window.addEventListener('pointermove', move)
-    return () => {
-      window.removeEventListener('pointermove', move)
-      node.style.removeProperty('--vt-ry')
-      node.style.removeProperty('--vt-rx')
-    }
-  }, [active, el])
-}
-
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const [view, setView] = useState<View>(() => initialView(location.pathname))
   const [phase, setPhase] = useState<Phase>('idle')
   const [deskMounted, setDeskMounted] = useState(view !== '2d')
-  const shellRef = useRef<HTMLDivElement>(null)
   const busy = useRef(false)
   const deskReady = useRef(false)
   const resolveReady = useRef<(() => void) | null>(null)
+
+  // The 2D app is rendered once into this element, which is then moved between the page (2D view)
+  // and the card inside the 3D scene. Moving the element keeps all React state (forms, scroll, timers).
+  const [shellHost] = useState(() => {
+    const el = document.createElement('div')
+    el.className = 'shell-host'
+    return el
+  })
+  const pageSlot = useRef<HTMLDivElement>(null)
+  const onCard = view !== '2d' || phase === 'lift' || phase === 'land'
+  useLayoutEffect(() => {
+    if (!onCard) pageSlot.current?.appendChild(shellHost)
+  }, [onCard, shellHost])
 
   const onDeskReady = useCallback(() => {
     deskReady.current = true
@@ -107,40 +100,38 @@ export function AppLayout() {
       ? Promise.resolve()
       : new Promise<void>((resolve) => {
           resolveReady.current = resolve
-          setTimeout(resolve, 3500) // don't hang if the first frame is slow
+          setTimeout(resolve, 4000) // don't hang if the first frame is slow
         })
 
   // Each step animates between two neighbouring views: 2d <-> panel <-> 3d.
   const steps = {
     async toPanelFrom2d() {
       loadDesk()
-      window.scrollTo(0, 0)
       setDeskMounted(true)
-      setPhase('lift')
-      await sleep(700)
+      await waitForDesk() // the room renders invisibly first, so the swap onto the card is seamless
+      window.scrollTo(0, 0)
+      setPhase('lift') // the app moves onto the card, filling the screen; the camera pulls back
+      await sleep(1300)
       setView('panel')
       setPhase('idle')
     },
     async to2dFromPanel() {
-      setPhase('land')
-      await sleep(520)
+      setPhase('land') // the camera moves in until the card fills the screen
+      await sleep(1000)
       setView('2d')
       setPhase('idle')
       setDeskMounted(false)
       deskReady.current = false
     },
     async to3dFromPanel() {
-      await waitForDesk()
-      setPhase('away')
-      await sleep(1250)
+      setPhase('away') // the card flies off while the camera moves to the desk
+      await sleep(1300)
       setView('3d')
       setPhase('idle')
     },
     async toPanelFrom3d() {
-      setPhase('leave')
-      await sleep(60)
-      setPhase('return')
-      await sleep(1000)
+      setPhase('return') // the card flies back in while the camera pulls back
+      await sleep(1150)
       setView('panel')
       setPhase('idle')
     },
@@ -161,7 +152,7 @@ export function AppLayout() {
         }
         if (view === '2d') await steps.toPanelFrom2d()
         if (view === '3d') await steps.toPanelFrom3d()
-        // Now floating in 3D space; continue to the target if it's further along.
+        // Now the card is floating in the room; continue if the target is further along.
         if (next === '3d') await steps.to3dFromPanel()
         if (next === '2d') await steps.to2dFromPanel()
       } finally {
@@ -174,31 +165,10 @@ export function AppLayout() {
 
   const ctx = useMemo(() => ({ view, phase, switchTo }), [view, phase, switchTo])
 
-  const resting = phase === 'idle'
-  usePanelTilt(resting && view === 'panel', shellRef)
-
-  // The 2D app: normal page (2d), a floating panel (panel, and while animating), or hidden (3d).
-  const floating = !resting || view === 'panel'
-  const shellClass = !resting
-    ? `vt-shell vt-active vt-${phase}`
-    : view === 'panel'
-      ? 'vt-shell vt-active vt-panel'
-      : view === '3d'
-        ? 'vt-shell vt-hidden'
-        : 'vt-shell'
-
-  // The room behind: visible in panel and 3d views, fading in/out with lift/land.
-  const deskVisible = phase === 'lift' || (phase !== 'land' && view !== '2d')
-  const deskClass = ['vt-desk', deskVisible && 'vt-on', view === '3d' && resting && 'vt-interactive', floating && phase !== 'away' && 'vt-dim']
-    .filter(Boolean)
-    .join(' ')
-
   return (
     <ViewContext.Provider value={ctx}>
-      {floating && <div className="vt-backdrop" />}
-
       {deskMounted && (
-        <div className={deskClass} aria-hidden={!(view === '3d' && resting)}>
+        <div className={onCard ? 'vt-desk vt-on' : 'vt-desk'} aria-hidden={!onCard}>
           <Suspense
             fallback={
               <Center h="100%">
@@ -206,18 +176,13 @@ export function AppLayout() {
               </Center>
             }
           >
-            <DeskPage onReady={onDeskReady} />
+            <DeskPage onReady={onDeskReady} shellHost={shellHost} />
           </Suspense>
         </div>
       )}
 
-      <div className={floating ? 'vt-stage' : undefined}>
-        <div ref={shellRef} className={shellClass}>
-          <div className={floating ? 'vt-scroller' : undefined}>
-            <Shell />
-          </div>
-        </div>
-      </div>
+      <div ref={pageSlot} />
+      {createPortal(<Shell />, shellHost)}
     </ViewContext.Provider>
   )
 }
