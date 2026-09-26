@@ -54,7 +54,7 @@ export function FilterMultiSelect({ label, placeholder, data, value, onChange }:
     )
 
   return (
-    <Combobox store={combobox} onOptionSubmit={toggle} withinPortal>
+    <Combobox store={combobox} onOptionSubmit={toggle} withinPortal position="bottom-start" width={280}>
       <Combobox.Target>
         <InputBase
           label={label}

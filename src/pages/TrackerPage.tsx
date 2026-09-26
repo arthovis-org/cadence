@@ -79,7 +79,7 @@ export function TrackerPage() {
   }
 
   return (
-    <Stack maw={1100}>
+    <Stack>
       <TimerBar onManual={() => setEditing('new')} />
 
       <Group justify="space-between">

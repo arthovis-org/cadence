@@ -66,7 +66,7 @@ export function InvoicesPage() {
   })
 
   return (
-    <Stack maw={1100}>
+    <Stack>
       <Group justify="space-between">
         <Title order={2}>Invoices</Title>
         <Button leftSection={<IconPlus size={16} />} onClick={() => navigate('/invoices/new')}>

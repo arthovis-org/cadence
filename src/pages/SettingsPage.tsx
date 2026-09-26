@@ -8,6 +8,7 @@ import { fetchAllRows, useUpdateWorkspace, useWorkspace } from '../data/hooks'
 import { CURRENCIES } from '../lib/money'
 import type { TableName, Workspace } from '../lib/types'
 import { RateEditor } from '../components/RateEditor'
+import { AppearanceSettings } from '../components/AppearanceSettings'
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -90,7 +91,7 @@ export function SettingsPage() {
   }
 
   return (
-    <Stack maw={1000}>
+    <Stack maw={1400}>
       <Title order={2}>Settings</Title>
       <Grid>
         <Grid.Col span={{ base: 12, md: 7 }}>
@@ -152,6 +153,7 @@ export function SettingsPage() {
 
         <Grid.Col span={{ base: 12, md: 5 }}>
           <Stack>
+            <AppearanceSettings />
             <RateEditor scope={{ level: 'default' }} parent={{}} currency={workspace.currency} />
             <Text size="xs" c="dimmed" px="xs">
               Rates cascade: a task rate overrides its project rate, which overrides the client rate, which overrides

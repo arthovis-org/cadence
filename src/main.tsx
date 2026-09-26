@@ -13,6 +13,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HashRouter } from 'react-router-dom'
 import { AuthGate } from './auth/AuthGate'
 import { App } from './App'
+import { applyUiScale, getUiScale } from './lib/uiScale'
+
+applyUiScale(getUiScale())
 
 const theme = createTheme({
   primaryColor: 'indigo',

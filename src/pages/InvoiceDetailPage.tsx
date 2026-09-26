@@ -153,7 +153,7 @@ export function InvoiceDetailPage() {
   }
 
   return (
-    <Stack maw={1000}>
+    <Stack>
       <Anchor component={Link} to="/invoices" size="sm">
         <Group gap={4}>
           <IconArrowLeft size={14} /> Invoices

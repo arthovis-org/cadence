@@ -249,7 +249,7 @@ export function ReportsPage() {
     (config.filters.search ? 1 : 0)
 
   return (
-    <Stack maw={1200}>
+    <Stack>
       <Group justify="space-between">
         <div>
           <Title order={2}>Reports</Title>

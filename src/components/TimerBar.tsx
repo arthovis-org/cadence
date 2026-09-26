@@ -78,7 +78,7 @@ function TimerInputs({ running, onManual }: Props & { running: TimeEntry | null 
     <Paper withBorder p="sm" shadow="xs">
       <Group gap="sm" wrap="wrap">
         <TextInput
-          style={{ flex: '1 1 240px' }}
+          style={{ flex: '1 1 320px' }}
           placeholder="What are you working on?"
           value={description}
           onChange={(e) => setDescription(e.currentTarget.value)}
@@ -89,7 +89,7 @@ function TimerInputs({ running, onManual }: Props & { running: TimeEntry | null 
           size="md"
         />
         <ProjectTaskSelect
-          style={{ flex: '1 1 220px' }}
+          style={{ flex: '0 1 340px', minWidth: 220 }}
           size="md"
           value={pt}
           onChange={(v) => {
