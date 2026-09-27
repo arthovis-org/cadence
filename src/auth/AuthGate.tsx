@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Center, Loader } from '@mantine/core'
+import { Center, Loader, Stack, Text } from '@mantine/core'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { LoginPage } from './LoginPage'
 import { NewPasswordPage } from './NewPasswordPage'
+import { DemoContext, useDemoSeeding } from '../demo/demo'
 
 /** Remove the one-time `?code=` Supabase adds to email links, so reloading doesn't try to use it again. */
 function cleanAuthParams() {
@@ -19,6 +20,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [recovering, setRecovering] = useState(false)
   const qc = useQueryClient()
   const userId = useRef<string | null | undefined>(undefined)
+  const seeding = useDemoSeeding()
 
   useEffect(() => {
     const track = (next: Session | null) => {
@@ -40,6 +42,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe()
   }, [qc])
 
+  if (seeding) {
+    return (
+      <Center h="100vh">
+        <Stack align="center" gap="sm">
+          <Loader />
+          <Text c="dimmed">Setting up your demo workspace…</Text>
+        </Stack>
+      </Center>
+    )
+  }
   if (session === undefined) {
     return (
       <Center h="100vh">
@@ -48,5 +60,5 @@ export function AuthGate({ children }: { children: ReactNode }) {
     )
   }
   if (session && recovering) return <NewPasswordPage onDone={() => setRecovering(false)} />
-  return session ? <>{children}</> : <LoginPage />
+  return session ? <DemoContext.Provider value={!!session.user.is_anonymous}>{children}</DemoContext.Provider> : <LoginPage />
 }

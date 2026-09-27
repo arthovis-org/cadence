@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { Alert, Anchor, Button, Center, Group, Paper, PasswordInput, SegmentedControl, Stack, Text, TextInput, Title } from '@mantine/core'
-import { IconCircleCheck, IconClockHour4 } from '@tabler/icons-react'
+import { Alert, Anchor, Button, Center, Divider, Group, Paper, PasswordInput, SegmentedControl, Stack, Text, TextInput, Title } from '@mantine/core'
+import { IconCircleCheck, IconClockHour4, IconFlask } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
+import { startDemo, takeDemoError, takePreferSignUp } from '../demo/demo'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
@@ -9,13 +10,18 @@ type Mode = 'signin' | 'signup' | 'reset'
 const redirectTo = () => window.location.origin + window.location.pathname
 
 export function LoginPage() {
-  const [mode, setMode] = useState<Mode>('signin')
+  const [mode, setMode] = useState<Mode>(() => (takePreferSignUp() ? 'signup' : 'signin'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(takeDemoError)
   const [notice, setNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  function tryDemo() {
+    setError(null)
+    void startDemo() // errors come back through takeDemoError when this screen reappears
+  }
 
   function switchMode(next: Mode) {
     setMode(next)
@@ -135,6 +141,18 @@ export function LoginPage() {
               <Anchor component="button" type="button" size="sm" ta="center" onClick={() => switchMode('signin')}>
                 Back to sign in
               </Anchor>
+            )}
+
+            {mode !== 'reset' && (
+              <>
+                <Divider label="or" labelPosition="center" />
+                <Button variant="light" color="grape" leftSection={<IconFlask size={16} />} onClick={tryDemo}>
+                  Try the demo
+                </Button>
+                <Text size="xs" c="dimmed" ta="center">
+                  No account needed. Explore a workspace filled with sample projects, time and invoices.
+                </Text>
+              </>
             )}
           </Stack>
         </form>

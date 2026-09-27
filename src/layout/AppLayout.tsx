@@ -30,6 +30,8 @@ import {
 import { NavLink as RouterNavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { ViewSwitch } from './ViewSwitch'
+import { DemoBanner } from '../demo/DemoBanner'
+import { useIsDemo } from '../demo/demo'
 import { ViewContext, type Phase, type View } from './view'
 
 const loadDesk = () => import('../desk/DeskPage')
@@ -74,6 +76,7 @@ export function AppLayout() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [deskMounted, setDeskMounted] = useState(view !== '2d')
   const busy = useRef(false)
+  const isDemo = useIsDemo()
   const deskReady = useRef(false)
   const resolveReady = useRef<(() => void) | null>(null)
 
@@ -186,6 +189,12 @@ export function AppLayout() {
         <Paper className="view-hud" shadow="md" withBorder p={4}>
           <ViewSwitch />
         </Paper>
+      )}
+
+      {isDemo && (
+        <div className={view === '3d' ? 'demo-slot demo-slot-raised' : 'demo-slot'}>
+          <DemoBanner />
+        </div>
       )}
 
       <div ref={pageSlot} />
